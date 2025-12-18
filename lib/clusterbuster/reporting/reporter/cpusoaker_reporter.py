@@ -18,8 +18,8 @@ from .ClusterBusterReporter import ClusterBusterReporter
 
 
 class cpusoaker_reporter(ClusterBusterReporter):
-    def __init__(self, jdata: dict, report_format: str, extras=None):
-        super().__init__(jdata, report_format, extras=extras)
+    def __init__(self, jdata: dict, args):
+        super().__init__(jdata, args)
         self._add_accumulators(['work_iterations'])
         self._set_header_components(['namespace', 'pod', 'container', 'process_id'])
 

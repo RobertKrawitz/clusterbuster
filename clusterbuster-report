@@ -15,7 +15,6 @@
 # limitations under the License.
 
 import sys
-import argparse
 from lib.clusterbuster.reporting.reporter.ClusterBusterReporter import ClusterBusterReporter, ClusterBusterReporterException
 import traceback
 import os
@@ -23,32 +22,13 @@ import os
 
 if 'CB_LIBPATH' in os.environ:
     sys.path = [element for element in os.environ['CB_LIBPATH'].split(':')] + sys.path
-parser = argparse.ArgumentParser(description='Generate ClusterBuster report')
-report_formats = ClusterBusterReporter.list_report_formats()
-
-parser.add_argument('-o', '--format', '--output_format', '--output-format', '--output', '--report-format',
-                    '--report_format',
-                    default='summary', metavar='format', type=str,
-                    choices=report_formats, help=f'Report format: one of {", ".join(report_formats)}')
-parser.add_argument('-q', '--quiet', action='store_true', help='Do not actually print report')
-parser.add_argument('--list_formats', '--list-formats', action='store_true',
-                    help='List available report formats')
-parser.add_argument("files", metavar='file', type=str, nargs='*', help='Files to process')
-
-args, extras = parser.parse_known_args()
-if args.list_formats:
-    print('\n'.join(sorted(report_formats)))
-    sys.exit(0)
-
-if args.quiet:
-    args.format = 'quiet'
 
 try:
-    status = ClusterBusterReporter.print_report(args.files, report_format=args.format, extras=extras)
+    status = ClusterBusterReporter.print_report()
 except (KeyboardInterrupt, BrokenPipeError):
     sys.exit(1)
 except ClusterBusterReporterException as exc:
-    print(f"Generating report failed: {exc}")
+    print(f"Generating report failed: {str(exc)}")
     sys.exit(1)
 except Exception:
     print(f"Decoding JSON failed: {traceback.format_exc()}", file=sys.stderr)

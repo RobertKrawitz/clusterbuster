@@ -19,8 +19,8 @@ from .ClusterBusterReporter import ClusterBusterReporter
 
 
 class sysbench_reporter(ClusterBusterReporter):
-    def __init__(self, jdata: dict, report_format: str, extras=None):
-        super().__init__(jdata, report_format, extras=extras)
+    def __init__(self, jdata: dict, args):
+        super().__init__(jdata, args)
         self._set_header_components(['namespace', 'pod', 'container', 'process_id'])
         self._is_fileio = 'sysbench_fileio_tests' in self._get_workload_options()
         if self._is_fileio:
