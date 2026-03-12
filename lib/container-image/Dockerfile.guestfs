@@ -1,0 +1,11 @@
+# Run virt-customize in a container to avoid host libvirt/SELinux
+# "label overrides require relabeling" errors. Debian uses direct backend by default
+# and has no libvirtd in the image.
+FROM debian:bookworm-slim
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        libguestfs-tools ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+ENV LIBGUESTFS_BACKEND=direct
+WORKDIR /work
+ENTRYPOINT ["virt-customize"]

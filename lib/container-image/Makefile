@@ -1,8 +1,14 @@
-.PHONY: %.image %.containerdisk FORCE
+.PHONY: %.image %.containerdisk guestfs-image FORCE
 
-all: $(addsuffix .image, base workloads vm)
+# Force libguestfs to use direct (qemu) backend so virt-customize does not use libvirt.
+# Otherwise RHEL/Fedora SELinux can fail with: "label overrides require relabeling at the domain level".
+export LIBGUESTFS_BACKEND := direct
+
+# HammerDB container image (x86_64 only in image; arm64 skips RPM). Code written by Cursor (Auto).
+all: $(addsuffix .image, base workloads vm hammerdb hammerdb-vm)
 ifeq ($(NOBASEDEP),)
 workloads.image: base.image
+hammerdb.image: base.image
 endif
 
 # Image repo information
@@ -10,6 +16,8 @@ REPO_BASE=quay.io/rkrawitz
 TAG=latest
 # Container image architecture names
 ARCHES=amd64 arm64
+# VM containerdisk qcow2 build: aarch64/UEFI is not supported in-tree until debugged; only amd64 VM disks.
+VM_DISK_ARCHES?=amd64
 
 # Mapping between architecture names (differ between container
 # images and Linux machine names).
@@ -24,9 +32,9 @@ aarch64_ARCH_REV=aarch64
 
 # Default does not pass through enough CPU flags to be x86_64_v2, which is neeeded
 # for CentOS-Stream9
-amd64_QEMU_FLAGS=--arch=x86_64 --qemu-commandline='-cpu Skylake-Client'
+amd64_QEMU_FLAGS=--arch=x86_64 --virt-type=kvm
 x86_64_QEMU_FLAGS=$(amd64_QEMU_FLAGS)
-arm64_QEMU_FLAGS=--arch=aarch64
+arm64_QEMU_FLAGS=--debug --arch=aarch64 --virt-type=qemu --machine virt
 aarch64_QEMU_FLAGS=$(arm64_QEMU_FLAGS)
 
 
@@ -74,11 +82,50 @@ ifneq ($(CB_REGISTRY_AUTH_FILE),)
 export REGISTRY_AUTH_FILE=$(CB_REGISTRY_AUTH_FILE)
 endif
 
+# Run virt-customize in a container to avoid host libvirt "label overrides require relabeling" (set to 1).
+# Requires: make guestfs-image first.
+VIRT_CUSTOMIZE_IN_CONTAINER?=0
+GUESTFS_IMAGE?=clusterbuster-guestfs:local
+
 vm_deps = $(foreach arch, $(ARCHES), $(IMAGE))
 base_deps := FORCE
 workloads_deps := FORCE
 
-vm.image:: $(addsuffix .containerdisk, $(ARCHES))
+vm.image:: $(addsuffix .containerdisk, $(VM_DISK_ARCHES))
+	-buildah manifest rm build-clusterbuster-vm 2>/dev/null; true
+	buildah manifest create build-clusterbuster-vm
+	for arch in $(VM_DISK_ARCHES); do \
+		buildah bud --build-arg ARCH=$$arch -t $(REPO_BASE)/clusterbuster-vm:$(TAG) --manifest build-clusterbuster-vm -f Dockerfile.vm --arch $$arch .; \
+	done
+	buildah manifest push --all build-clusterbuster-vm docker://$(REPO_BASE)/clusterbuster-vm:$(TAG)
+
+# HammerDB VM disk: same mechanism as %.containerdisk — virt-customize --firstboot + virt-install.
+# (Offline virt-customize-only install was removed: SELinux labels and live-system behavior diverged.)
+# amd64 only (HammerDB has no arm64 RPM). Uses distinct virt name so it does not clash with cnv-containerdisk.
+IMAGE_HAMMERDB_AMD64=$(subst __ARCH__,x86_64,$(URL_TEMPLATE))
+IMAGE_BASE_HAMMERDB_AMD64=$(notdir $(IMAGE_HAMMERDB_AMD64))
+HAMMERDB_VM_VIRT_NAME=cnv-hammerdb-vm
+
+base-image-hammerdb-vm-amd64x.qcow2: $(IMAGE_BASE_HAMMERDB_AMD64)
+	$(MAKE) $(IMAGE_BASE_HAMMERDB_AMD64) REMOTE=$(IMAGE_HAMMERDB_AMD64)
+	-virsh destroy $(HAMMERDB_VM_VIRT_NAME) 2>/dev/null || true
+	-virsh undefine $(HAMMERDB_VM_VIRT_NAME) --nvram 2>/dev/null || true
+	rm -f base-image-hammerdb-vm-amd64x.qcow2
+	cp -p $(IMAGE_BASE_HAMMERDB_AMD64) base-image-hammerdb-vm-amd64x.qcow2
+	@if [ "$(VIRT_CUSTOMIZE_IN_CONTAINER)" = "1" ]; then \
+		KVM_OPT=; [ -r /dev/kvm ] && KVM_OPT="--device /dev/kvm"; \
+		podman run --rm -v $(CURDIR):/work -w /work $$KVM_OPT $(GUESTFS_IMAGE) -a /work/base-image-hammerdb-vm-amd64x.qcow2 --firstboot /work/firstboot.hammerdb.vm; \
+		chown $$(id -u):$$(id -g) base-image-hammerdb-vm-amd64x.qcow2 2>/dev/null || true; \
+	else \
+		LIBGUESTFS_BACKEND=direct virt-customize -a base-image-hammerdb-vm-amd64x.qcow2 --firstboot firstboot.hammerdb.vm; \
+	fi
+	virt-install --disk base-image-hammerdb-vm-amd64x.qcow2 --import --name=$(HAMMERDB_VM_VIRT_NAME) --graphics=none --network default --os-variant=$(OS_VARIANT) $(amd64_QEMU_FLAGS) --boot=hd
+	-virsh destroy $(HAMMERDB_VM_VIRT_NAME) 2>/dev/null || true
+	-virsh undefine $(HAMMERDB_VM_VIRT_NAME) --nvram 2>/dev/null || true
+
+hammerdb-vm.image: base-image-hammerdb-vm-amd64x.qcow2
+	buildah bud --build-arg ARCH=amd64 -t $(REPO_BASE)/clusterbuster-hammerdb-vm:$(TAG) -f Dockerfile.hammerdb-vm --arch amd64 .
+	buildah push $(REPO_BASE)/clusterbuster-hammerdb-vm:$(TAG) docker://$(REPO_BASE)/clusterbuster-hammerdb-vm:$(TAG)
 
 %.image:
 	-buildah manifest rm $(MANIFEST)
@@ -89,22 +136,34 @@ vm.image:: $(addsuffix .containerdisk, $(ARCHES))
 %.qcow2:
 	wget $(REMOTE)
 
+# Workloads VM: mainline procedure. firstboot.vm installs packages; VM is booted then destroyed.
+# (Reverted from wait-for-shutdown; use this to match mainline VM build.)
 %.containerdisk:
 ifeq ($(IMAGE),)
 	-echo "Unknown architecture $*"
 	false
 endif
 	$(MAKE) $(IMAGE_BASE) REMOTE=$(IMAGE)
-	-virsh destroy cnv-containerdisk
-	-virsh undefine --nvram cnv-containerdisk
+	-virsh destroy cnv-containerdisk 2>/dev/null || true
+	-virsh undefine cnv-containerdisk --nvram 2>/dev/null || true
 	-rm -f base-image-$*x.qcow2
 	cp -p $(IMAGE_BASE) base-image-$*x.qcow2
-	virt-customize -a base-image-$*x.qcow2 --firstboot firstboot.vm
-	virt-install --disk base-image-$*x.qcow2 --import --name=cnv-containerdisk --graphics=none --virt-type=qemu --network default --os-variant=$(OS_VARIANT) $($*_QEMU_FLAGS) --boot=hd
-	-virsh destroy cnv-containerdisk
-	-virsh undefine cnv-containerdisk
+	@if [ "$(VIRT_CUSTOMIZE_IN_CONTAINER)" = "1" ]; then \
+		KVM_OPT=; [ -r /dev/kvm ] && KVM_OPT="--device /dev/kvm"; \
+		podman run --rm -v $(CURDIR):/work -w /work $$KVM_OPT $(GUESTFS_IMAGE) -a /work/base-image-$*x.qcow2 --firstboot /work/firstboot.vm; \
+		chown $$(id -u):$$(id -g) base-image-$*x.qcow2 2>/dev/null || true; \
+	else \
+		LIBGUESTFS_BACKEND=direct virt-customize -a base-image-$*x.qcow2 --firstboot firstboot.vm; \
+	fi
+	virt-install --disk base-image-$*x.qcow2 --import --name=cnv-containerdisk --graphics=none --network default --os-variant=$(OS_VARIANT) $($*_QEMU_FLAGS) --boot=hd
+	-virsh destroy cnv-containerdisk 2>/dev/null || true
+	-virsh undefine cnv-containerdisk --nvram 2>/dev/null || true
 
 FORCE: ;
+
+# Build image for running virt-customize in container (avoids host libvirt/SELinux "label overrides" error).
+guestfs-image:
+	podman build -t $(GUESTFS_IMAGE) -f Dockerfile.guestfs .
 
 clean:
 	rm -f *.qcow2

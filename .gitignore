@@ -5,3 +5,5 @@
 *.py[cod]
 *$py.class
 *.qcow2
+examples/.cb-ordered-smoke.*.sh
+.cursor/

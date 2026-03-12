@@ -1,0 +1,127 @@
+#!/bin/bash
+
+# Copyright 2019-2026 Robert Krawitz/Red Hat
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use it except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# HammerDB workload: code written by Cursor (Auto).
+# This file is sourced by clusterbuster; common_workdir, processes_per_pod,
+# workload_run_time, and similar are set by the caller.
+# shellcheck disable=SC2154
+
+################################################################
+# HammerDB workload
+################################################################
+
+declare -g ___hammerdb_driver=pg
+declare -g ___hammerdb_database=hammerdb
+declare -g ___hammerdb_benchmark=tpcc
+declare -gi ___hammerdb_virtual_users=4
+declare -gi ___hammerdb_rampup=1
+declare -g ___hammerdb_workdir="$common_workdir"
+
+function hammerdb_arglist() {
+    local mountdir=$1; shift
+    while [[ "$1" != '--' ]] ; do shift; done; shift
+    local workdir=${___hammerdb_workdir:-${common_workdir:-${emptydirs[0]:-/tmp}}}
+    mk_yaml_args "python3" "${mountdir}hammerdb.py" "$@" \
+		 "$processes_per_pod" "$workdir" "$workload_run_time" "$___hammerdb_driver" \
+		 "$___hammerdb_database" "$___hammerdb_benchmark" "$___hammerdb_virtual_users" \
+		 "$___hammerdb_rampup"
+}
+
+function hammerdb_help_options() {
+    cat <<'EOF'
+    HammerDB Options (initial support: PostgreSQL and MariaDB only):
+       The HammerDB client and database server run colocated (same pod or VM).
+
+       --hammerdb-driver=<driver>
+                        Database driver: pg (PostgreSQL) or mariadb (default: pg).
+       --hammerdb-database=<name>
+                        Database/schema name (default: hammerdb).
+       --hammerdb-benchmark=<benchmark>
+                        Benchmark type: tpcc or tprocc (default: tpcc).
+       --hammerdb-virtual-users=<n>
+                        Number of virtual users (default: 4).
+       --hammerdb-rampup=<minutes>
+                        Ramp-up time in minutes before timed run (default: 1).
+       --hammerdb-workdir=<dir>
+                        Work directory (default: common workdir).
+       Run duration is controlled by --workload-runtime.
+
+       Use the clusterbuster-hammerdb container and VM images; they include
+       HammerDB plus PostgreSQL and MariaDB. The VM disk is built like clusterbuster-vm
+       (virt-install + firstboot), not offline virt-customize-only install.
+       HammerDB is not supported on arm64 (no package shipped yet);
+       see https://github.com/TPC-Council/HammerDB/discussions/767
+EOF
+}
+
+function hammerdb_document() {
+    cat <<'EOF'
+* hammerdb: TPC-C and TPROC-C database benchmark reporting NOPM and TPM.
+  Client and database run in the same pod or VM. See https://www.hammerdb.com/
+EOF
+}
+
+function hammerdb_process_options() {
+    local opt
+    local -a unknown_opts=()
+    for opt in "$@" ; do
+	read -r noptname1 noptname optvalue <<< "$(parse_option "$opt")"
+	case "$noptname1" in
+	    hammerdbdriver)    ___hammerdb_driver=$optvalue ;;
+	    hammerdbdatabase)  ___hammerdb_database=$optvalue ;;
+	    hammerdbbenchmark)  ___hammerdb_benchmark=$optvalue ;;
+	    hammerdbvirtualusers) ___hammerdb_virtual_users=$optvalue ;;
+	    hammerdbrampup)    ___hammerdb_rampup=$optvalue ;;
+	    hammerdbworkdir)   ___hammerdb_workdir=$optvalue ;;
+	    *)                 unknown_opts+=("$noptname ($noptname1)") ;;
+	esac
+    done
+    if [[ -z "${___hammerdb_driver:-}" ]] ; then
+	warn "HammerDB: driver is required (--hammerdb-driver=pg or --hammerdb-driver=mariadb)"
+	___hammerdb_driver=pg
+    fi
+    if [[ "$___hammerdb_driver" != pg && "$___hammerdb_driver" != mariadb ]] ; then
+	warn "HammerDB: only pg (PostgreSQL) and mariadb are supported; got $___hammerdb_driver"
+	___hammerdb_driver=pg
+    fi
+    if [[ -n "${unknown_opts[*]:-}" ]] ; then
+	warn "Notice: the following options are not known: ${unknown_opts[*]}"
+    fi
+    # Used by clusterbuster when launching pods/VMs
+    # shellcheck disable=SC2034
+    container_image="quay.io/rkrawitz/clusterbuster-hammerdb:latest"
+    # shellcheck disable=SC2034
+    vm_image="quay.io/rkrawitz/clusterbuster-hammerdb-vm:latest"
+    # HammerDB + DB need more resources in VMs (bump defaults only)
+    [[ "${vm_cores:-1}" -le 1 ]] && vm_cores=2
+    [[ "$vm_memory" == "2Gi" ]] && vm_memory=4Gi
+    # VM runs need longer for boot + dnf install + DB init + HammerDB schema + timed run
+    if [[ "${deployment_type:-}" = vm && ( "${pod_start_timeout:--1}" -le 180 || "${pod_start_timeout:--1}" -lt 0 ) ]] ; then
+	pod_start_timeout=600
+    fi
+}
+
+function hammerdb_report_options() {
+    cat <<EOF
+"hammerdb_driver": "$___hammerdb_driver",
+"hammerdb_database": "$___hammerdb_database",
+"hammerdb_benchmark": "$___hammerdb_benchmark",
+"hammerdb_virtual_users": $___hammerdb_virtual_users,
+"hammerdb_rampup": ${___hammerdb_rampup}
+EOF
+}
+
+register_workload hammerdb hammer

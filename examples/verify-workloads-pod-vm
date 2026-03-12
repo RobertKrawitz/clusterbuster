@@ -1,0 +1,47 @@
+# Verification: run fio, uperf, memory, HammerDB (pg), HammerDB (mariadb) as pod and VM.
+# Requires: clusterbuster-workloads and clusterbuster-vm images (fio, uperf, memory);
+#           clusterbuster-hammerdb and clusterbuster-hammerdb-vm (HammerDB).
+# Usage: ./clusterbuster -f examples/verify-workloads-pod-vm [--artifactdir=...]
+# Or run each workload manually (pod then VM) with short runtime.
+
+cleanup
+precleanup
+exit_at_end
+
+# ---- fio ----
+workload=fio
+workloadruntime=45
+replicas=1
+fio-patterns=read
+fio-iodepths=1
+fio-ninst=1
+fio-absolute-filesize=1Gi
+fio-ioengines=libaio
+
+# ---- uperf ----
+workload=uperf
+workloadruntime=30
+replicas=1
+uperf-msg-sizes=8192
+uperf-nthr=1
+uperf-ninst=1
+
+# ---- memory ----
+workload=memory
+workloadruntime=30
+replicas=1
+memory-size=10485760
+
+# ---- HammerDB pg ----
+workload=hammerdb
+workloadruntime=60
+replicas=1
+hammerdb-driver=pg
+hammerdb-rampup=1
+
+# ---- HammerDB mariadb ----
+workload=hammerdb
+workloadruntime=60
+replicas=1
+hammerdb-driver=mariadb
+hammerdb-rampup=1

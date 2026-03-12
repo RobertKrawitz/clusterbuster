@@ -194,6 +194,15 @@ declare prometheus_ending_timestamp=
 declare -i target_data_rate=0
 declare job_name=
 declare global_sync_service=
+# Sync pod always uses clusterbuster_base_image (or CLUSTERBUSTER_SYNC_IMAGE / --sync_pod_image).
+# It never uses workload container_image. Requests only (no limits) on the sync pod.
+# Sync always uses the Kubernetes pod network: the sync Pod is not hostNetwork; listeners bind
+# on the pod IP. Workload pods connect over the CNI; VM guests reach sync via the virt-launcher
+# pod (still pod network egress). NetworkPolicy/mesh must allow that path.
+declare clusterbuster_base_image='quay.io/rkrawitz/clusterbuster-base:latest'
+declare sync_pod_image_override=
+declare cb_sync_pod_memory_request=512Mi
+declare cb_sync_pod_cpu_request=2
 declare -i predelay=0
 declare -i postdelay=0
 declare -r default_metrics_file="metrics-default.yaml"
@@ -242,7 +251,7 @@ sync_nonce=$(uuidgen -r)
 
 declare kata_runtime_class=kata
 declare image_pull_policy=
-declare container_image='quay.io/rkrawitz/clusterbuster-base:latest'
+declare container_image="$clusterbuster_base_image"
 
 declare accumulateddata=
 declare -a plurals=('s' '')
@@ -399,7 +408,13 @@ Extended Options:
                         Use the specified architecture.  Default the
                         architecture of this platform.
        --containerimage=<image>
-                        Use the specified container image.
+                        Container image for workload pods/VMs only (not the sync pod).
+       --clusterbuster_base_image=<image>
+                        Override the sync pod base image and initial worker default.
+                        Normally not needed (default quay.io/.../clusterbuster-base).
+       --sync_pod_image=<image>
+                        Force the sync pod image. Normally not needed; use only for
+                        private mirrors etc. (overrides CLUSTERBUSTER_SYNC_IMAGE and base).
        --sync_watchdog_timeout=<timeout>
                         Set watchdog timer for all pods/VMs.  After pods/VMs
                         start, if the watchdog is not reset within the
@@ -569,12 +584,17 @@ $(print_workloads_supporting_reporting '                        - ')
 
     Pod Options:
        --container_image=<image>
-                        Image to use (default $container_image).
-                        Does not apply to "pause" workloads.
+                        Image for workload pods/VMs only (default: workload-specific or
+                        clusterbuster_base_image). Does not apply to "pause" workloads.
+                        The sync pod uses clusterbuster_base_image (defaults are fine;
+                        CLUSTERBUSTER_SYNC_IMAGE or --sync_pod_image only if you must).
        --deployment_type=<pod,deployment,replicaset,vm>
                         Deploy via individual pods, deployments, replica sets,
                         or vms (default $deployment_type).
-                        Note that functionality that relies on fixed pod
+                        VM deployments are disabled on aarch64 worker clusters
+                        until containerdisk/UEFI issues are resolved; set
+                        CB_ALLOW_VM_AARCH64=1 to override. Note that
+                        functionality that relies on fixed pod
                         names or recognition of distinct pods (e. g.
                         the %i functionality in volumes) will not work
                         correctly with deployments or replicasets.
@@ -938,6 +958,8 @@ function process_option() {
 	workdir)		    common_workdir=$optvalue			;;
 	configmapfile)		    configmap_files+=("$optvalue")		;;
 	containerimage)		    container_image=$optvalue			;;
+	clusterbusterbaseimage)	    clusterbuster_base_image=$optvalue		;;
+	syncpodimage)		    sync_pod_image_override=$optvalue		;;
 	containers)		    containers_per_pod=$optvalue		;;
 	containersperpod)	    containers_per_pod=$optvalue		;;
 	deploymenttype)		    deployment_type=$optvalue			;;
@@ -1246,6 +1268,16 @@ function listen_ports() {
 function deployment_type_vm_policy() {
     echo privileged
 }
+
+# Architecture of the first schedulable worker (or local uname if cluster not queryable).
+function cb_cluster_worker_architecture() {
+    local a=
+    if [[ -n "${OC:-}" ]] ; then
+	a=$("$OC" get nodes -l 'node-role.kubernetes.io/worker=' -o jsonpath='{.items[0].status.nodeInfo.architecture}' 2>/dev/null) || true
+	[[ -z "$a" ]] && a=$("$OC" get nodes -o jsonpath='{.items[0].status.nodeInfo.architecture}' 2>/dev/null) || true
+    fi
+    echo "${a:-$(uname -m)}"
+}
 ################################################################
 # Helpers
 ################################################################
@@ -1412,7 +1444,10 @@ function create_sync_service() {
     local initial_sync_clients=${3:-$sync_clients}
     if get_sync -q ; then
 	if [[ $namespace = "${namespaces_to_create[0]:-}" ]] ; then
-	    create_service -W -h -v "${basename}-sync-sync" "$sync_namespace" "${sync_namespace}-sync" "$sync_port" "$sync_ns_port"
+	    # Selector must match sync pod labels. Using name: ${basename}-sync-sync is wrong: standard_labels_yaml
+	    # for the sync pod sets name to sync-sync-${basename}-sync (workload/namespace both "sync"), so the
+	    # Service had no endpoints and workloads could not resolve or reach the sync pod.
+	    create_service -W -h -k "${basename}-sync-sync" -v "true" "$sync_namespace" "${sync_namespace}-sync" "$sync_port" "$sync_ns_port"
 	    create_sync_deployment "$sync_namespace" "$((sync_clients * ${#namespaces_to_create[@]}))" "$((initial_sync_clients * ${#namespaces_to_create[@]}))"
 	fi
 	create_external_service "$namespace" "${basename}-sync-sync" "${global_sync_service}" "$sync_port" "$sync_ns_port"
@@ -1985,6 +2020,8 @@ function generate_emergency_report() {
    "secrets": $secrets,
    "replicas": $replicas,
    "container_image": "$container_image",
+   "clusterbuster_base_image": "$clusterbuster_base_image",
+   "sync_pod_image": "${sync_pod_image_override:-${CLUSTERBUSTER_SYNC_IMAGE:-$clusterbuster_base_image}}",
    "node_selector": "$node_selector",
  $(indent 2 container_resources_json)
    "runtime_classes": {$(_report_runtime_classes)},
@@ -2243,6 +2280,8 @@ $(indent 2 _report_liveness_probe)
   "secrets": $secrets,
   "replicas": $replicas,
   "container_image": "$container_image",
+  "clusterbuster_base_image": "$clusterbuster_base_image",
+  "sync_pod_image": "${sync_pod_image_override:-${CLUSTERBUSTER_SYNC_IMAGE:-$clusterbuster_base_image}}",
   "node_selector": "$node_selector",
 $(indent 2 container_resources_json)
   "runtime_classes": {$(_report_runtime_classes)},
@@ -4222,10 +4261,11 @@ function create_container_sync() {
     local namespace=$1
     local expected_clients=$4
     local initial_expected_clients=$5
+    local _sync_pod_img="${sync_pod_image_override:-${CLUSTERBUSTER_SYNC_IMAGE:-$clusterbuster_base_image}}"
     cat <<EOF
 - name: ${namespace}
 ${image_pull_policy:+  imagePullPolicy: $image_pull_policy}
-  image: "$container_image"
+  image: "$_sync_pod_img"
   ports:
   - containerPort: $port
 $(indent 2 standard_environment)
@@ -4246,6 +4286,10 @@ $(indent 2 standard_environment)
   - "$expected_clients"
   - "$initial_expected_clients"
 $(indent 2 volume_mounts_yaml -V "$namespace" 0 0)
+  resources:
+    requests:
+      memory: "${cb_sync_pod_memory_request}"
+      cpu: "${cb_sync_pod_cpu_request}"
 $(indent 2 restricted_security_context)
 EOF
 }
@@ -4262,7 +4306,7 @@ metadata:
   name: $(mkpodname "${basename}-sync")
 $(indent 2 standard_deployment_metadata_yaml "$namespace" sync)
 $(indent 2 standard_labels_yaml -c sync -S -t 'sync' 'sync' "${basename}-sync")
-    ${basename}-sync-dep: "true"
+    ${basename}-sync-sync: "true"
   selector:
     matchLabels:
       app: ${namespace}
@@ -4571,7 +4615,8 @@ function _do_cleanup_1() {
 	objects_to_clean=ns
     else
 	objects_to_clean="-A all"
-	fi
+    fi
+    local ignf='--ignore-not-found=true'
     if ((force)) ; then
 	# It appears that allowing processes to write to stderr inside
 	# a trap results in the subprocess not doing everything
@@ -4579,19 +4624,19 @@ function _do_cleanup_1() {
 	exec >/dev/null
 	exec 2>/dev/null
 	# shellcheck disable=SC2086
-	____OC delete $objects_to_clean -l "${basename}-sync" $ltimeout
+	____OC delete $objects_to_clean -l "${basename}-sync" $ignf $ltimeout
 	# shellcheck disable=SC2086
-	____OC delete $objects_to_clean -l "$basename" $ltimeout
+	____OC delete $objects_to_clean -l "$basename" $ignf $ltimeout
     elif ((report_object_creation)) ; then
 	# shellcheck disable=SC2086
-	__OC delete $objects_to_clean -l "${basename}-sync" $ltimeout 1>&2
+	__OC delete $objects_to_clean -l "${basename}-sync" $ignf $ltimeout 1>&2
 	# shellcheck disable=SC2086
-	__OC delete $objects_to_clean -l "${basename}" $ltimeout 1>&2
+	__OC delete $objects_to_clean -l "${basename}" $ignf $ltimeout 1>&2
     else
 	# shellcheck disable=SC2086
-	__OC delete $objects_to_clean -l "${basename}-sync" $ltimeout 2>&1 |grep 'DEBUG kubectl:' 1>&2
+	__OC delete $objects_to_clean -l "${basename}-sync" $ignf $ltimeout 2>&1 |grep 'DEBUG kubectl:' 1>&2
 	# shellcheck disable=SC2086
-	__OC delete $objects_to_clean -l "$basename" $ltimeout 2>&1 |grep 'DEBUG kubectl:' 1>&2
+	__OC delete $objects_to_clean -l "$basename" $ignf $ltimeout 2>&1 |grep 'DEBUG kubectl:' 1>&2
     fi
 }
 
@@ -4600,11 +4645,11 @@ function _do_cleanup() {
 	if [[ -n "$force_cleanup_timeout" ]] ; then
 	    warn "*** Cleanup failed, doing a force delete!"
 	    if [[ $deployment_type = vm ]] ; then
-		__OC delete all -A -l "${basename}-sync" --force --grace-period=0 2>&1 | timestamp 1>&2
+		__OC delete all -A -l "${basename}-sync" --force --grace-period=0 --ignore-not-found=true 2>&1 | timestamp 1>&2
 	    fi
-	    __OC delete all -A -l "$basename" --force --grace-period=0 2>&1 | timestamp 1>&2
+	    __OC delete all -A -l "$basename" --force --grace-period=0 --ignore-not-found=true 2>&1 | timestamp 1>&2
 	    if ((use_namespaces && remove_namespaces)) ; then
-		__OC delete namespace -l "$basename" --force --grace-period=0 2>&1 | timestamp 1>&2
+		__OC delete namespace -l "$basename" --force --grace-period=0 --ignore-not-found=true 2>&1 | timestamp 1>&2
 	    fi
 	fi
     fi
@@ -5049,6 +5094,17 @@ function validate_options() {
     esac
 
     [[ -z "$OC" && $doit -gt 0 ]] && fatal "Cannot find oc or kubectl command, exiting!"
+
+    # KubeVirt aarch64 VMs often fail at UEFI/boot with current containerdisk images; disable until fixed.
+    if [[ $deployment_type = vm && ${CB_ALLOW_VM_AARCH64:-0} != "1" ]] ; then
+	local warch
+	warch=$(cb_cluster_worker_architecture)
+	case "$warch" in
+	aarch64|arm64)
+	    fatal "VM deployment is disabled on aarch64 clusters (KubeVirt/UEFI/containerdisk). Use pods or kata, or set CB_ALLOW_VM_AARCH64=1 to override after debugging."
+	    ;;
+	esac
+    fi
 
     resource_validation_failed=0
     validate_resource resource_request "${resource_requests[@]}" || resource_validation_failed=1

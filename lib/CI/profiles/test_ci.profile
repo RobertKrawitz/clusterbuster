@@ -1,19 +1,22 @@
 # ClusterBuster smoke test profile
+#
+# Soft ~15 min target for PR pre-checks; ~64GiB workers.
 
+workloads=files,fio,uperf,cpusoaker,memory
 force-pull=1
 
 # instances : directories : files : blocksize : filesize : O_DIRECT
 files-params=1:32:32:4096:4096:0
 files-timeout=1800
 
-job_runtime=45
+job_runtime=40
 
 fio-fdatasync=0
 fio-patterns=read
 fio-iodepths=1
 fio-ioengines=libaio
 fio-ninst=1
-fio-absolute-filesize=8Gi
+fio-absolute-filesize=2Gi
 fio-timeout=3600
 fio-memsize=4096
 fio-blocksize=1048576
@@ -27,6 +30,12 @@ uperf-timeout=300
 cpusoaker-timeout=300
 cpusoaker-replica-increment=10
 cpusoaker-max-replicas=10
+
+# runtime:replicas:processes:alloc:scan — short runs; third line is light parallelism.
+memory-timeout=900
+memory-params=25:1:1:64Mi:1
+memory-params=25:1:1:64Mi:random
+memory-params=25:4:2:128Mi:1
 
 artifactdir=
 virtiofsd-direct=1

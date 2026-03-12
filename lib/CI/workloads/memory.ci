@@ -1,0 +1,117 @@
+#!/bin/bash
+
+# Copyright 2022-2026 Robert Krawitz/Red Hat
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+
+declare -gi ___memory_job_runtime
+declare -gi ___memory_job_timeout
+declare -gi ___memory_replicas
+declare -gi ___memory_processes
+declare -gi ___memory_scan
+declare -ga ___memory_params
+
+function memory_test() {
+    local default_job_runtime=$1
+    local runtimeclass
+    local -a _memory_run_specs
+    local options
+    local per_runtime replicas processes alloc_raw scan_val
+    local -i alloc
+    local job_name
+    for runtimeclass in "${runtimeclasses[@]}" ; do
+	process_workload_options "$workload" "${runtimeclass:-pod}"
+	if ((___memory_job_runtime <= 0)) ; then
+	    ___memory_job_runtime=$default_job_runtime
+	fi
+	___memory_job_timeout=$(compute_timeout "$___memory_job_timeout")
+	if [[ -z "${___memory_params[*]}" ]] ; then
+	    _memory_run_specs=("${___memory_job_runtime}:${___memory_replicas}:${___memory_processes}:${___memory_alloc}:${___memory_scan}")
+	else
+	    _memory_run_specs=("${___memory_params[@]}")
+	fi
+	for options in "${_memory_run_specs[@]}" ; do
+	    IFS=: read -r per_runtime replicas processes alloc_raw scan_val <<< "$options"
+	    if [[ -z "${per_runtime:-}" || -z "${scan_val:-}" || -z "${alloc_raw:-}" || -z "${replicas:-}" || -z "${processes:-}" ]] ; then
+		echo "Unparsable memory options '$options' (want runtime:replicas:processes:alloc:scan)" 1>&2
+		continue
+	    fi
+	    if ! [[ "$replicas" =~ ^[0-9]+$ && "$processes" =~ ^[0-9]+$ && "$per_runtime" =~ ^[0-9]+$ ]] ; then
+		echo "Invalid runtime, replicas, or processes in memory options '$options'" 1>&2
+		continue
+	    fi
+	    alloc=$(parse_size "$alloc_raw")
+	    job_name="R${per_runtime}-${replicas}P-${processes}pr-${alloc}B-s${scan_val}"
+	    run_clusterbuster_1 -r "$runtimeclass" \
+		-j "$job_name" -w memory \
+		-t "$___memory_job_timeout" -R "$per_runtime" -- \
+		--replicas="$replicas" --processes="$processes" \
+		--memorysize="$alloc" --memoryscan="$scan_val" \
+		${client_pin_node:+"--pin-node=sync=$client_pin_node"} \
+		--failure-status='No Result' --cleanup-always=1 || return
+	done
+    done
+}
+
+function memory_initialize_options() {
+    ___memory_job_runtime=0
+    ___memory_job_timeout=0
+    ___memory_replicas=1
+    ___memory_processes=1
+    ___memory_alloc=67108864
+    ___memory_scan=1
+    ___memory_params=()
+}
+
+function memory_process_option() {
+    local opt=$1
+    local noptname1
+    local _noptname
+    local optvalue
+    read -r noptname1 _noptname optvalue <<< "$(parse_ci_option "$opt" "$workload" "${runtimeclass:-pod}")"
+    case "$noptname1" in
+	'') ;;
+	memory*runtime) ___memory_job_runtime=$optvalue ;;
+	memory*timeout) ___memory_job_timeout=$optvalue ;;
+	memoryreplica*) ___memory_replicas=$optvalue ;;
+	memoryproc*)    ___memory_processes=$optvalue ;;
+	memoryscan*)    ___memory_scan=$optvalue ;;
+	memoryalloc*)   ___memory_alloc=$(parse_size "$optvalue") ;;
+	memory*params)
+	    # shellcheck disable=SC2206
+	    ___memory_params+=(${optvalue//,/ })
+	    ;;
+	*) return 1 ;;
+    esac
+    return 0
+}
+
+function memory_help_options() {
+    cat <<'EOF'
+    Memory workload CI options:
+        --memory-runtime=seconds
+        --memory-timeout=seconds
+        --memory-replicas=n
+        --memory-processes=n
+        --memory-scan=<1,0,random>
+        --memory-alloc=bytes (e.g. 64Mi)
+        --memory-params=runtime:replicas:processes:alloc:scan[,...]
+                                Space or comma separated list of test
+                                specifications (--memory-runtime in seconds, then
+                                same order as --memory-replicas,
+                                --memory-processes, --memory-alloc, and
+                                --memory-scan).  Use scan=1 for sequential scan,
+                                random for random scan (not the numeric code 2).
+                                If set, those five options are not used to build
+                                the run list.
+EOF
+}
+
+function memory_document() {
+    cat <<'EOF'
+* memory: allocate and optionally scan memory in the guest.
+EOF
+}
+
+register_workload memory
