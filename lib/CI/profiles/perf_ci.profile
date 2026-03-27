@@ -1,4 +1,6 @@
 # ClusterBuster performance CI profile
+#
+# ~64GiB / 32 CPU workers; up to ~6 hours.
 
 force-pull=1
 
@@ -25,8 +27,29 @@ uperf-nthr=4
 uperf-ninst=1,4
 uperf-timeout=300
 
-cpusoaker-timeout=600
+cpusoaker-timeout=1200
 cpusoaker-replica-increment=20
+pod-start-timeout:cpusoaker:!vm=180
+pod-start-timeout:cpusoaker:vm=600
+
+# runtime:replicas:processes:alloc:scan — mixed scale; large single-VM case uses vm-memory.
+memory-timeout=7200
+vm-cores:memory=4
+vm-memory:memory=16Gi
+memory-params=120:8:4:512Mi:1
+memory-params=180:1:1:6Gi:1
+memory-params=120:16:2:256Mi:random
+
+# HammerDB recommends >=15-20 min steady-state; 1200s = 20 min workload runtime.
+hammerdb-timeout=3600
+timeout:hammerdb:vm=3600
+# runtime:driver:replicas:rampup:virtual_users:benchmark
+hammerdb-params=1200:pg:2:1:4:tpcc
+hammerdb-params=1200:mariadb:2:1:4:tpcc
+limit:hammerdb=memory=7Gi
+limit:hammerdb=cpu=4
+vm-cores:hammerdb=5
+vm-memory:hammerdb=8Gi
 
 artifactdir=
 virtiofsd-direct=1

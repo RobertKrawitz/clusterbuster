@@ -1,0 +1,13 @@
+# Copyright 2026 Robert Krawitz/Red Hat
+# HammerDB VM container disk image (code written by Cursor (Auto)).
+# Uses qcow2 built with virt-customize (HammerDB + PostgreSQL + MariaDB).
+
+FROM scratch
+
+WORKDIR /disk
+ARG ARCH
+ADD --chown=107:107 base-image-hammerdb-vm-${ARCH}x.qcow2 /disk/
+# TARGETARCH is set by buildah when using --arch (e.g. amd64, arm64).
+# HammerDB has no aarch64 RPM yet; install only for amd64.
+
+USER 1000

@@ -1,4 +1,6 @@
 # ClusterBuster functional CI profile
+#
+# ~64GiB / 32 CPU workers; ~1 hour.
 
 force-pull=1
 
@@ -26,6 +28,24 @@ uperf-timeout=300
 cpusoaker-timeout=300
 cpusoaker-replica-increment=10
 cpusoaker-max-replicas=30
+
+# runtime:replicas:processes:alloc:scan — VM path sized for guest alloc + OS.
+memory-timeout=1800
+vm-cores:memory=2
+vm-memory:memory=4Gi
+memory-params=60:1:1:128Mi:1
+memory-params=90:2:2:256Mi:1
+memory-params=60:4:2:128Mi:random
+
+hammerdb-timeout=600
+timeout:hammerdb:vm=1200
+# runtime:driver:replicas:rampup:virtual_users:benchmark
+hammerdb-params=120:pg:2:1:4:tpcc
+hammerdb-params=120:mariadb:2:1:4:tpcc
+limit:hammerdb=memory=7Gi
+limit:hammerdb=cpu=4
+vm-cores:hammerdb=5
+vm-memory:hammerdb=8Gi
 
 artifactdir=
 virtiofsd-direct=1

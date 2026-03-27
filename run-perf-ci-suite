@@ -693,6 +693,7 @@ function process_option() {
 	uniqueprefix) unique_job_prefix=$(bool -Y "$optvalue")				;;
 	jobdelay) job_delay=$optvalue							;;
 	compress*) compress_report="$(bool "$optvalue")"				;;
+	workloads) readarray -t workloads <<< "$(parse_optvalues "$optvalue")"		;;
 	*) extra_args+=("$option")							;;
     esac
 }
@@ -950,6 +951,22 @@ if ((! debugonly)) ; then
     for runtimeclass in "${all_runtimeclasses[@]}" ; do
 	check_runtimeclass "$runtimeclass" && runtimeclasses+=("$runtimeclass")
     done
+    # Skip vm jobs on aarch64 clusters (same policy as clusterbuster CB_ALLOW_VM_AARCH64).
+    if [[ "${CB_ALLOW_VM_AARCH64:-0}" != "1" && -n "${OC:-}" ]] ; then
+	cluster_arch=$("${OC}" get nodes -l 'node-role.kubernetes.io/worker=' -o jsonpath='{.items[0].status.nodeInfo.architecture}' 2>/dev/null) || true
+	[[ -z "$cluster_arch" ]] && cluster_arch=$("${OC}" get nodes -o jsonpath='{.items[0].status.nodeInfo.architecture}' 2>/dev/null) || true
+	if [[ "$cluster_arch" = aarch64 || "$cluster_arch" = arm64 ]] ; then
+	    local -a filtered_rc=()
+	    for runtimeclass in "${runtimeclasses[@]}" ; do
+		if [[ "$runtimeclass" = vm ]] ; then
+		    echo "run-perf-ci-suite: skipping runtimeclass vm on aarch64 cluster (set CB_ALLOW_VM_AARCH64=1 to force)" 1>&2
+		    continue
+		fi
+		filtered_rc+=("$runtimeclass")
+	    done
+	    runtimeclasses=("${filtered_rc[@]}")
+	fi
+    fi
     starting_timestamp=$(date +%s)
     job_datestamp=$(date -u "+$(standard_snapshot_date_format)" --date=@"$starting_timestamp")
     artifactdir=${artifactdir//%s/$job_datestamp}
