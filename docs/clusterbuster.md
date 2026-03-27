@@ -15,20 +15,20 @@ with bash!
 **Table of Contents**
 
 - [ClusterBuster](#clusterbuster)
-    - [Introduction](#introduction)
-    - [Running ClusterBuster](#running-clusterbuster)
-    - [Internals](#internals)
-        - [Architecture](#architecture)
-        - [Workloads](#workloads)
-            - [Workload Host API](#workload-host-api)
-            - [Workload Client (Pod) API](#workload-client-pod-api)
-                - [Public Members](#public-members)
-                - [Running Workloads](#running-workloads)
-                - [Protected Members](#protected-members)
-            - [Create A Workload](#create-a-workload)
-        - [CI Workflows](#ci-workflows)
-        - [Create A Deployment Type](#create-a-deployment-type)
-    - [Bring Your Own Workload](#bring-your-own-workload)
+  - [Introduction](#introduction)
+  - [Running ClusterBuster](#running-clusterbuster)
+  - [Internals](#internals)
+    - [Architecture](#architecture)
+    - [Workloads](#workloads)
+      - [Workload Host API](#workload-host-api)
+      - [Workload Client (Pod) API](#workload-client-pod-api)
+        - [Public Members](#public-members)
+        - [Running Workloads](#running-workloads)
+        - [Protected Members](#protected-members)
+      - [Create A Workload](#create-a-workload)
+    - [CI Workflows](#ci-workflows)
+    - [Create A Deployment Type](#create-a-deployment-type)
+  - [Bring Your Own Workload](#bring-your-own-workload)
 
 <!-- markdown-toc end -->
 
@@ -72,12 +72,30 @@ ClusterBuster.
 
 ### Architecture
 
-Todo
+**Sync networking:** The sync controller runs as an ordinary Pod in the sync namespace. It
+always uses the **pod network** (cluster CNI)—not `hostNetwork` or node IPs. Workload Pods
+connect to the sync Service / pod address on that network. For VM deployments, guest traffic
+to sync still leaves through the KubeVirt launcher Pod, so it is still pod-network path from
+the cluster’s perspective. Anything that blocks pod-to-pod traffic (NetworkPolicy, service
+mesh sidecars on workload Pods, etc.) can prevent sync while VM paths behave differently.
+
+**VM containerdisk images** (`clusterbuster-vm`, `clusterbuster-hammerdb-vm`): both qcow2 disks
+are produced the same way under `lib/container-image/Makefile`: copy a cloud base image,
+`virt-customize --firstboot <script>`, then **`virt-install --import --boot=hd`** so the guest
+boots once and installs packages with **dnf/rpm on a live SELinux-enforcing system**. HammerDB
+uses **amd64 only** (no published aarch64 HammerDB RPM for that install path). A separate
+offline-only image build was avoided so SELinux labels and runtime behavior match mainline.
+
+**aarch64 / arm64:** VM deployments are **disabled** on aarch64 worker clusters (KubeVirt guests
+often fail past UEFI with current containerdisk flows). `clusterbuster` refuses
+`--deployment-type=vm` unless `CB_ALLOW_VM_AARCH64=1`; `run-perf-ci-suite` skips the `vm`
+runtime class on those clusters. The VM disk Makefile only builds **amd64** containerdisks
+(`VM_DISK_ARCHES`, default `amd64`).
 
 ### Workloads
 
 ClusterBuster supports extensible workloads.  At present, it supports
-uperf, fio, many small files, CPU/startup test, and a number of others.
+uperf, fio, HammerDB, many small files, CPU/startup test, and a number of others.
 
 A workload requires, at a minimum, a workload definition in
 `lib/workloads`.  This is a set of bash functions that

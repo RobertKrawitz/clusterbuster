@@ -1,0 +1,19 @@
+# Run as
+# clusterbuster -f hammerdb
+#
+# Uses the clusterbuster-hammerdb image (client and database colocated per pod).
+
+cleanup
+workload=hammerdb
+workloadruntime=180
+hammerdb-driver=pg
+hammerdb-benchmark=tpcc
+hammerdb-virtual-users=4
+hammerdb-rampup=1
+replicas=2
+precleanup
+exit_at_end
+limit=memory=7Gi
+limit=cpu=4
+vm-cores=5
+vm-memory=8Gi

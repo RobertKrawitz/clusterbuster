@@ -63,6 +63,13 @@ ClusterBuster currently supports the following workloads:
 - *sysbench* -- a [multi-threaded system stress/benchmark
   tool](https://github.com/akopytov/sysbench).
 
+- *hammerdb* -- [HammerDB](https://www.hammerdb.com/) TPC-C and TPROC-C
+  database benchmark (NOPM/TPM).  Client and database run colocated (same
+  pod or VM).  Supports PostgreSQL and MariaDB.  Not supported on arm64
+  (no package shipped yet; see [HammerDB #767](https://github.com/TPC-Council/HammerDB/discussions/767)).  Use the dedicated
+  `clusterbuster-hammerdb` container and `clusterbuster-hammerdb-vm` VM
+  images (see `lib/container-image/`).
+
 - *uperf* -- a [network performance tool](https://uperf.org/) front end.
 
 In addition, these special purpose workloads are available:

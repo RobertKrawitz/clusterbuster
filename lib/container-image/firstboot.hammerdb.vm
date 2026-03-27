@@ -1,0 +1,32 @@
+#!/bin/sh
+# Runs once during hammerdb-vm disk build (virt-install boot), same pattern as firstboot.vm.
+# dnf/rpm on a live SELinux-enforcing guest.
+
+# firstboot starts too early, and hostname resolution doesn't work right away.
+# Better would be to wait for that to be running.
+sleep 10
+
+# Multiple reports of problems with selinux causing problems for RPM scriptlets
+# The normal symptom is that /bin/sh cannot be exec'ed by some of the scripts.
+setenforce 0
+
+ARCH=`uname -m`
+dnf --setopt=install_weak_deps=0 --enablerepo=crb install -y epel-release epel-next-release
+dnf --setopt=install_weak_deps=0 install -y \
+    postgresql-server \
+    postgresql \
+    postgresql-libs \
+    mariadb-server \
+    mariadb \
+    procps-ng \
+    python3 \
+    tzdata \
+    util-linux \
+    ca-certificates
+( [ "$ARCH" != "x86_64" ] || ( curl -sL -o /tmp/hammerdb.rpm \
+				    https://github.com/TPC-Council/HammerDB/releases/download/v5.0/hammerdb-5.0-1.el9.x86_64.rpm && \
+				   dnf --setopt=install_weak_deps=0 install -y /tmp/hammerdb.rpm && rm -f /tmp/hammerdb.rpm ) ) && \
+    dnf -y clean all && \
+    rm -rf /var/cache/yum /var/cache/dnf
+
+poweroff

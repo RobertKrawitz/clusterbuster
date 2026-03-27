@@ -1,0 +1,35 @@
+# Copyright 2026 Robert Krawitz/Red Hat
+# HammerDB container image: HammerDB + PostgreSQL + MariaDB for ClusterBuster.
+# Code written by Cursor (Auto).
+# Use this image for the hammerdb workload; do not add these to clusterbuster-workloads.
+
+FROM quay.io/rkrawitz/clusterbuster-base:latest
+
+USER 0
+
+# TARGETARCH is set by buildah when using --arch (e.g. amd64, arm64).
+# HammerDB has no aarch64 RPM yet; install only for amd64.
+ARG TARGETARCH
+RUN microdnf --setopt=install_weak_deps=0 --enablerepo=crb install -y \
+      epel-release epel-next-release && \
+    microdnf --setopt=install_weak_deps=0 install -y \
+      postgresql-server \
+      postgresql \
+      postgresql-libs \
+      mariadb-server \
+      mariadb \
+      procps-ng \
+      python3 \
+      tzdata \
+      util-linux \
+      ca-certificates && \
+    ( [ "$TARGETARCH" != "amd64" ] || ( curl -sL -o /tmp/hammerdb.rpm \
+      https://github.com/TPC-Council/HammerDB/releases/download/v5.0/hammerdb-5.0-1.el9.x86_64.rpm && \
+      rpm -ivh --nodeps /tmp/hammerdb.rpm && rm -f /tmp/hammerdb.rpm ) ) && \
+    microdnf -y clean all && \
+    rm -rf /var/cache/yum /var/cache/dnf
+
+# Ensure hammerdbcli is on PATH (RPM typically installs under /opt/HammerDB-*)
+ENV PATH="/opt/HammerDB-5.0:${PATH}"
+
+USER 1000
