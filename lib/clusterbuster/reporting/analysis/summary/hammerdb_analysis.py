@@ -35,16 +35,22 @@ class hammerdb_analysis(ClusterBusterAnalyzeOneBase):
     def Analyze(self):
         answer = {'workload': self._workload}
         max_pods = {}
+        memory = dict()
         nopm = {}
         tpm = {}
         for pods, data1 in self._data.items():
             for runtime, data2 in data1.items():
                 if runtime not in max_pods:
                     max_pods[runtime] = 0
+                    memory[runtime] = dict()
                     nopm[runtime] = {}
                     tpm[runtime] = {}
                 if pods > max_pods[runtime]:
                     max_pods[runtime] = pods
+                try:
+                    memory[runtime][pods] = data2['memory_per_pod']
+                except Exception:
+                    pass
                 nopm[runtime][pods] = data2.get('nopm', 0)
                 tpm[runtime][pods] = data2.get('tpm', 0)
         min_max_pods = min(max_pods.values()) if max_pods else None
@@ -54,12 +60,18 @@ class hammerdb_analysis(ClusterBusterAnalyzeOneBase):
             if min_max_pods is not None:
                 answer[runtime]['NOPM'] = nopm[runtime].get(min_max_pods, 0)
                 answer[runtime]['TPM'] = tpm[runtime].get(min_max_pods, 0)
+            try:
+                answer[runtime]['Per-pod memory'] = int(memory[runtime][min_max_pods])
+            except Exception:
+                pass
             if self._baseline and self._baseline in answer and runtime != self._baseline:
                 try:
                     base_nopm = nopm[self._baseline].get(min_max_pods) or 1
                     base_tpm = tpm[self._baseline].get(min_max_pods) or 1
                     answer[runtime]['Ratio NOPM'] = nopm[runtime].get(min_max_pods, 0) / base_nopm
                     answer[runtime]['Ratio TPM'] = tpm[runtime].get(min_max_pods, 0) / base_tpm
+                    answer[runtime]['Memory overhead/pod'] = int(memory[runtime][min_max_pods] -
+                                                                 memory[self._baseline][min_max_pods])
                 except (TypeError, ZeroDivisionError):
                     pass
         return answer

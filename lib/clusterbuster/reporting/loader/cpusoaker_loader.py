@@ -31,7 +31,7 @@ class cpusoaker_loader(ClusterBusterLoadOneReportBase):
         root['iterations_cpu_sec'] = self._summary['work_iterations_cpu_sec']
         root['iterations_sec'] = self._summary['work_iterations_sec']
         try:
-            root['memory'] = self._metrics['Maximum memory working set'][f'node: {self._client_pin_node}']
+            root['memory'] = self._metrics['Maximum memory']['Working set'][f'node: {self._client_pin_node}']
             root['memory_per_pod'] = root['memory'] / self._count
         except (TypeError, KeyError, ZeroDivisionError):
             pass
