@@ -98,6 +98,25 @@ class ClusterBusterReporter:
         return status
 
     @staticmethod
+    def report(files, report_format, metrics=True, indent=2, report_width=78):
+        # ClusterBusterReporter.report API for loader: code written by Cursor (Auto).
+        """
+        Build json/text reports for report directories or JSON paths (used by ClusterBusterLoader).
+        Returns (answers, ok) where answers is a list of per-report payloads and ok is overall success.
+        """
+        if files is None:
+            files = []
+        elif isinstance(files, str):
+            files = [files]
+        argv = ['-o', report_format]
+        if not metrics:
+            argv.append('--no-metrics')
+        argv.extend(['--indent', str(indent), '--report_width', str(report_width)])
+        argv.extend(files)
+        args = ClusterBusterReporter.parse_args(argv)
+        return ClusterBusterReporter.__report(args)
+
+    @staticmethod
     def augment_parser(parser=None):
         """
         Add arguments to any top level parser.
@@ -296,7 +315,7 @@ class ClusterBusterReporter:
                 print(f'Unrecognized report {item}, expect JSON', file=sys.stderr)
             if data:
                 try:
-                    report, status = ClusterBusterReporter.__report_one(None, data, args.report_format)
+                    report, status = ClusterBusterReporter.__report_one(None, data, args)
                     if report:
                         answers.append(report)
                 except (KeyboardInterrupt, BrokenPipeError):

@@ -22,8 +22,13 @@ class AnalyzePostprocess(ClusterBusterPostprocessBase):
     Post-process ClusterBuster analysis
     """
 
-    def __init__(self, report, status, metadata, extras=None):
-        super().__init__(report, status, metadata, extras=extras)
+    @staticmethod
+    def __augment_parser_report_type(parser):
+        """Optional spreadsheet analysis-format-specific CLI flags."""
+        pass
+
+    def __init__(self, report, status, metadata, extras=None, allow_mismatch=False):
+        super().__init__(report, status, metadata, extras=extras, allow_mismatch=allow_mismatch)
 
     def Postprocess(self):
         metadata = {}

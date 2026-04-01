@@ -20,6 +20,11 @@ from .ClusterBusterReporter import ClusterBusterReporter
 class generic_nodata_reporter(ClusterBusterReporter):
     # Not necessary to override anything; we're not adding anything on
     # top of the base class.
+    @staticmethod
+    def __augment_parser_workload(parser):
+        """Register workload-specific command-line flags for clusterbuster-report."""
+        pass
+
     def __init__(self, jdata: dict, args):
         super().__init__(jdata, args)
         self._expect_row_data = False

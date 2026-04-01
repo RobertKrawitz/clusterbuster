@@ -19,8 +19,8 @@ from .ClusterBusterLoader import ClusterBusterLoadOneReportBase
 
 
 class hammerdb_loader(ClusterBusterLoadOneReportBase):
-    def __init__(self, name: str, report: dict, data: dict, extras=None):
-        super().__init__(name, report, data, extras=extras)
+    def __init__(self, name: str, report: dict, data: dict, extras=None, allow_mismatch=False):
+        super().__init__(name, report, data, extras=extras, allow_mismatch=allow_mismatch)
 
     def Load(self):
         if not self._summary.get('total_pods'):

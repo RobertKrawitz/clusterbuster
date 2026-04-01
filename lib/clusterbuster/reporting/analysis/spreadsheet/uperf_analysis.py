@@ -21,6 +21,11 @@ class uperf_analysis(SpreadsheetAnalysis):
     Analyze uperf data
     """
 
+    @staticmethod
+    def __augment_parser_workload(parser):
+        """Register workload-specific command-line flags for analyze-clusterbuster-report."""
+        pass
+
     def __init__(self, workload: str, data: dict, metadata: dict):
         dimensions = ['By Pod Count', 'By Message Size', 'By Threads']
         variables = [

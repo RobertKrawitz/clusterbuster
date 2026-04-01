@@ -7,3 +7,7 @@
 *.qcow2
 examples/.cb-ordered-smoke.*.sh
 .cursor/
+
+# Local ClusterBuster CI report trees / tarballs for testing (not committed)
+cb-ci-*/
+cb-ci-*.tar

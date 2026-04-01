@@ -24,6 +24,11 @@ class hammerdb_analysis(ClusterBusterAnalyzeOneBase):
     Analyze HammerDB data for spreadsheet output
     """
 
+    @staticmethod
+    def __augment_parser_workload(parser):
+        """Register workload-specific command-line flags for analyze-clusterbuster-report."""
+        pass
+
     def __init__(self, workload: str, data: dict, metadata: dict):
         super().__init__(workload, data, metadata)
 

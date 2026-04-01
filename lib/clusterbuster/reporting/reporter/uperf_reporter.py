@@ -18,6 +18,11 @@ from .ClusterBusterReporter import ClusterBusterReporter
 
 
 class uperf_reporter(ClusterBusterReporter):
+    @staticmethod
+    def __augment_parser_workload(parser):
+        """Register workload-specific command-line flags for clusterbuster-report."""
+        pass
+
     def __init__(self, jdata: dict, args):
         super().__init__(jdata, args)
         fields_to_copy = []

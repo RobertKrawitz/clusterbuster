@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# ClusterBusterLoader allow_mismatch threading (CLI from ClusterBusterAnalysis): code written by Cursor (Auto).
+
 import importlib
 import inspect
 import os
@@ -22,7 +24,6 @@ from datetime import datetime
 from ..reporter.ClusterBusterReporter import ClusterBusterReporter
 import json
 import traceback
-import argparse
 from ..reporting_exceptions import ClusterBusterReportingException
 
 
@@ -75,14 +76,12 @@ simpleVarsToCheck = {
 
 
 class ClusterBusterLoadOneReportBase:
-    def __init__(self, name: str, report: dict, data: dict, extras=None):
+    def __init__(self, name: str, report: dict, data: dict, extras=None, allow_mismatch=False):
         self._name = name
         self._data = data
         self._report = report
         self._extras = extras
-        parser = argparse.ArgumentParser(description="ClusterBuster loader")
-        parser.add_argument('--allow-mismatch', action='store_true')
-        args, extra_args = parser.parse_known_args(extras)
+        self._allow_mismatch = allow_mismatch
         try:
             self._metadata = self._report['metadata']
             self._summary = self._report['summary']
@@ -129,7 +128,7 @@ class ClusterBusterLoadOneReportBase:
                 data['metadata']['jobs'][name]['start_time'] = self._metadata['cluster_start_time']
             me = self._metadata
             you = data['metadata']['jobs'][name]
-            if not args.allow_mismatch:
+            if not self._allow_mismatch:
                 for var, action in simpleVarsToCheck.items():
                     self.__CheckMatch(var, name, me, you, failOnError=action)
                 self.__CheckMatch('openshift_version', name, me['kubernetes_version'],
@@ -177,8 +176,9 @@ class _ClusterBusterLoadReportSet:
     Analyze ClusterBuster reports
     """
 
-    def __init__(self, run: dict, name: str, answer: dict, extras=None):
+    def __init__(self, run: dict, name: str, answer: dict, extras=None, allow_mismatch=False):
         self.extras = extras
+        self.allow_mismatch = allow_mismatch
         self.reports = {}
         dirs = run['dirs']
         if dirs:
@@ -235,7 +235,7 @@ class _ClusterBusterLoadReportSet:
             for i in inspect.getmembers(imported_lib):
                 if i[0] == f'{workload}_loader':
                     try:
-                        i[1](self.name, report, self.answer, extras=self.extras).Load()
+                        i[1](self.name, report, self.answer, extras=self.extras, allow_mismatch=self.allow_mismatch).Load()
                     except (KeyboardInterrupt, BrokenPipeError) as exc:
                         raise (exc) from None
                     except ClusterBusterReportingException as exc:
@@ -249,9 +249,9 @@ class _ClusterBusterLoadReportSet:
 
 
 class ClusterBusterLoader:
-    def __init__(self, extras=None):
+    def __init__(self, extras=None, allow_mismatch=False):
         self._extras = extras
-        pass
+        self._allow_mismatch = allow_mismatch
 
     def _matches_patterns(self, f: str, patterns: list):
         if patterns:
@@ -376,5 +376,7 @@ class ClusterBusterLoader:
         for name, report in reports.items():
             if 'baseline' not in answer['metadata']:
                 answer['metadata']['baseline'] = name
-            _ClusterBusterLoadReportSet(reports[name], name, answer, extras=self._extras).Load()
+            _ClusterBusterLoadReportSet(
+                reports[name], name, answer, extras=self._extras,
+                allow_mismatch=self._allow_mismatch).Load()
         return answer
