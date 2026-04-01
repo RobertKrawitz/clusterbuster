@@ -956,7 +956,7 @@ if ((! debugonly)) ; then
 	cluster_arch=$("${OC}" get nodes -l 'node-role.kubernetes.io/worker=' -o jsonpath='{.items[0].status.nodeInfo.architecture}' 2>/dev/null) || true
 	[[ -z "$cluster_arch" ]] && cluster_arch=$("${OC}" get nodes -o jsonpath='{.items[0].status.nodeInfo.architecture}' 2>/dev/null) || true
 	if [[ "$cluster_arch" = aarch64 || "$cluster_arch" = arm64 ]] ; then
-	    local -a filtered_rc=()
+	    filtered_rc=()
 	    for runtimeclass in "${runtimeclasses[@]}" ; do
 		if [[ "$runtimeclass" = vm ]] ; then
 		    echo "run-perf-ci-suite: skipping runtimeclass vm on aarch64 cluster (set CB_ALLOW_VM_AARCH64=1 to force)" 1>&2
