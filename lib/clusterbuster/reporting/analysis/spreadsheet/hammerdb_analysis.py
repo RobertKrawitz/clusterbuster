@@ -24,6 +24,11 @@ class hammerdb_analysis(ClusterBusterAnalyzeOneBase):
     Analyze HammerDB data for spreadsheet output
     """
 
+    @staticmethod
+    def __augment_parser_workload(parser):
+        """Register workload-specific command-line flags for analyze-clusterbuster-report."""
+        pass
+
     def __init__(self, workload: str, data: dict, metadata: dict):
         super().__init__(workload, data, metadata)
 
@@ -36,9 +41,13 @@ class hammerdb_analysis(ClusterBusterAnalyzeOneBase):
         answer = f"Workload: {self._workload}\n\n"
         answer += self._analyze_variables(self._data, 'nopm', 'NOPM', multiplier=1.0, integer=True)
         answer += self._analyze_variables(self._data, 'tpm', 'TPM', multiplier=1.0, integer=True)
+        answer += self._analyze_variables(self._data, 'memory_per_pod', 'Memory/pod (MiB)',
+                                          multiplier=1/1048576, integer=False, ratio=False, difference=True)
         return answer
 
-    def _analyze_variables(self, data: dict, column: str, header: str, multiplier=1.0, integer: bool = True):
+    def _analyze_variables(self, data: dict, column: str, header: str, multiplier=1.0, valfunc=None,
+                           integer: bool = True, ratio: bool = True, difference: bool = False,
+                           rate_per_second: bool = False):
         def isnumber(x):
             return isinstance(x, (int, float))
 
@@ -68,4 +77,22 @@ class hammerdb_analysis(ClusterBusterAnalyzeOneBase):
                 row.append(prettyprint(run_ratio, base=0, precision=3))
             rows.append('\t'.join(row))
         answer += '\n'.join(rows) + '\n'
+
+        if ratio:
+            answer += f"""
+{header}, N pods (ratio)
+{columns_txt}
+"""
+            rows = []
+            for pods, data1 in sorted(list(data.items())):
+                baseline_value = self.get_value(data1, runs[0], column, valfunc)
+                row = [str(pods), '']
+                for run in runs[1:]:
+                    run_value = self.get_value(data1, run, column, valfunc)
+                    run_ratio = run_value / baseline_value if (isnumber(baseline_value) and
+                                                               baseline_value > 0 and isnumber(run_value)) else ''
+                    row.append(prettyprint(run_ratio, base=0, precision=3))
+                rows.append('\t'.join(row))
+            answer += '\n'.join(rows) + '\n'
+
         return answer

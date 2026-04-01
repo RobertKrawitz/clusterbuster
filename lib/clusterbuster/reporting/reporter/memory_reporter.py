@@ -14,15 +14,51 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import argparse
+# Timeline column CLI documentation and parser fixes: code written by Cursor (Auto).
+
 import json
 from copy import deepcopy
 import traceback
 import sys
 from .ClusterBusterReporter import ClusterBusterReporter
+from ..reporting_exceptions import ClusterBusterReportingException
+
+
+class _ClusterBusterReporterBadArgument(ClusterBusterReportingException):
+    def __init__(self, item):
+        super().__init__(f"Bad argument: {item}")
 
 
 class memory_reporter(ClusterBusterReporter):
+    """
+    Reporter for the memory workload, including optional timeline tables.
+
+    **Timeline column customization (`--timeline-column`)**
+
+    The memory timeline (verbose output, `--timeline-file`, and the Timeline field in
+    summary when present) is built from a table schema in `COLUMNS`: each key is a
+    column id matching a field on each timeline event (`time`, `current_request`,
+    `jobs`, `max`, `work_rate`, `node_in_use`, `working_set`, `node_CPU`,
+    `container_CPU`, …). Each column may define `header`, `format`, `precise_format`,
+    and `round` for `format_column()`.
+
+    Repeat `--timeline-column COLUMN:SPEC` to overlay changes onto that schema without
+    editing code. `SPEC` is a list of semicolon-separated assignments `key=value` applied
+    to that column's definition:
+
+    - Set a string option: `jobs:header=Active jobs`
+    - Set printf formats: `time:precise_format=%.6f;format=%.2f`
+    - Set boolean: `jobs:!format` forces `False`, `jobs:+format` forces `True` (keys
+      strip the leading `!` / `+`)
+    - Remove one option from a column: `jobs:-format` removes the `format` key
+    - Remove an entire column: value `-COLUMN:` (SPEC empty). From the shell use
+      `--timeline-column=-jobs:` or `'--timeline-column' '-jobs:'` so the leading `-` is
+      not parsed as a new flag.
+
+    Column ids must match event keys unless you add a new column whose id matches a key
+    present on each event dict. Values from the shell are strings; `format=false` stays
+    a string unless you use `!format` for a Python false.
+    """
 
     TIMELINE_FORMATS = ['tsv', 'csv', 'json']
     SEPARATORS = {
@@ -68,21 +104,38 @@ class memory_reporter(ClusterBusterReporter):
             },
         }
 
-    def __init__(self, jdata: dict, report_format: str, extras=None):
-        super().__init__(jdata, report_format, extras=extras)
-        parser = argparse.ArgumentParser(description='Parse memory report')
-        parser.add_argument('--dense-timeline', '--dense', type=float, nargs='?', const=1.0, help='Print dense timeline')
-        parser.add_argument('--precise-timeline', '--precise', action='store_true', help='Print high precision timeline')
-        parser.add_argument('--numeric-timeline', action='store_true', help='Print scannable numbers')
-        parser.add_argument('--timeline-format', type=str, choices=self.TIMELINE_FORMATS,
-                            help=f'Timeline format: one of {", ".join(self.TIMELINE_FORMATS)}',
-                            default='tsv')
-        parser.add_argument('--timeline-file', type=str, help='Output file for timeline')
-        parser.add_argument('--timeline-column', action='append', help='Column options (see the code)')
-        self.args, self.extra_args = parser.parse_known_args(extras)
+    @staticmethod
+    def __augment_parser_workload(parser):
+        memory_group = parser.add_argument_group("Memory workload options")
+        memory_group.add_argument('--dense-timeline', '--dense', type=float, metavar='[reporting frequency]',
+                                  default=None, help='Print dense timeline')
+        memory_group.add_argument('--precise-timeline', '--precise', action='store_true', help='Print high precision timeline')
+        memory_group.add_argument('--numeric-timeline', action='store_true', help='Print scannable numbers')
+        memory_group.add_argument('--timeline-format', type=str, choices=memory_reporter.TIMELINE_FORMATS,
+                                  help=f'Timeline format: one of {", ".join(memory_reporter.TIMELINE_FORMATS)}', default='tsv')
+        memory_group.add_argument('--timeline-file', type=str, metavar='file', help='Output file for timeline')
+        memory_group.add_argument(
+            '--timeline-column', action='append', default=None, metavar='COLUMN:SPEC',
+            help=(
+                'Customize timeline table columns (repeatable). Each value is COLUMN:SPEC; '
+                'SPEC is semicolon-separated key=value pairs merged into that column\'s '
+                'definition (header, format, precise_format, round). '
+                'Use !key or +key for boolean false/true; -key removes an option from the column. '
+                'To drop a column, pass -COLUMN:; if the value starts with -, use equals form '
+                'so the shell does not treat it as a flag (e.g. --timeline-column=-container_CPU:). '
+                'Example: --timeline-column \'jobs:header=Active jobs\' '
+                '--timeline-column time:precise_format=%%.6f --timeline-column=-container_CPU:'
+            ))
+
+    def __init__(self, jdata: dict, args):
+        super().__init__(jdata, args)
+        self.args = args
         if self.args.dense_timeline is not None:
             if float(self.args.dense_timeline) <= 0:
-                raise ValueError('--dense-timeline must be greater than 0')
+                if args.precise_timeline:
+                    args.dense_timeline = None
+                else:
+                    raise _ClusterBusterReporterBadArgument('--dense-timeline must be greater than 0')
         self.work = {}
         self.work_total = 0
         self.pod_node = {}
@@ -114,29 +167,36 @@ class memory_reporter(ClusterBusterReporter):
         self._set_header_components(['namespace', 'pod', 'container', 'process_id'])
         self._add_fields_to_copy(["result.scan"])
         self.columns = deepcopy(self.COLUMNS)
-        if self.args.timeline_column:
+        if getattr(self.args, 'timeline_column', None):
             for arg in self.args.timeline_column:
-                try:
-                    name, data = arg.split(':', 2)
-                except ValueError:
+                parts = arg.split(':', 1)
+                if len(parts) != 2:
                     continue
+                name, data = parts
                 if name == '' or name == '-':
                     continue
                 if name.startswith('-'):
-                    self.columns.pop(name, None)
+                    self.columns.pop(name[1:], None)
+                    continue
                 if name not in self.columns:
                     self.columns[name] = {}
                 for param in data.split(';'):
-                    try:
-                        key, value = param.split('=')
-                    except ValueError:
-                        pass
+                    param = param.strip()
+                    if not param:
+                        continue
+                    if '=' in param:
+                        key, value = param.split('=', 1)
+                        key = key.strip()
+                        value = value.strip() if value is not None else None
+                    else:
+                        key = param
+                        value = None
                     if key.startswith('!'):
-                        value = False
+                        self.columns[name][key[1:]] = False
                     elif key.startswith('+'):
-                        value = True
-                    elif key.startswith('-'):
-                        self.columns[name].pop(key, None)
+                        self.columns[name][key[1:]] = True
+                    elif key.startswith('-') and len(key) > 1:
+                        self.columns[name].pop(key[1:], None)
                     else:
                         self.columns[name][key] = value
 
@@ -315,7 +375,7 @@ class memory_reporter(ClusterBusterReporter):
 
     def format_timeline(self, report_format=None, timeline_format=None):
         if report_format is None:
-            report_format = self._report_format
+            report_format = self.args.format
         if timeline_format is not None:
             if self.timeline is None:
                 return None if timeline_format == 'json' else ''
@@ -358,8 +418,9 @@ class memory_reporter(ClusterBusterReporter):
                 timeline_report = self.format_timeline(timeline_format=self.args.timeline_format)
                 if self.args.timeline_file == '-':
                     print(timeline_report)
-                with open(self.args.timeline_file, 'w') as fp:
-                    print(timeline_report, file=fp)
+                else:
+                    with open(self.args.timeline_file, 'w') as fp:
+                        print(timeline_report, file=fp)
             else:
                 raise TypeError("Unable to report timeline: no events")
         timeline = self.format_timeline()

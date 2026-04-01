@@ -18,8 +18,13 @@ from .ClusterBusterReporter import ClusterBusterReporter
 
 
 class files_reporter(ClusterBusterReporter):
-    def __init__(self, jdata: dict, report_format: str, extras=None):
-        super().__init__(jdata, report_format, extras=extras)
+    @staticmethod
+    def __augment_parser_workload(parser):
+        """Register workload-specific command-line flags for clusterbuster-report."""
+        pass
+
+    def __init__(self, jdata: dict, args):
+        super().__init__(jdata, args)
         self._file_operations = ['create', 'read', 'remove']
         self._add_timeline_vars(['create.operation', 'read.operation', 'remove.operation'])
         self._add_accumulators(['create.user_cpu_time', 'create.system_cpu_time', 'create.cpu_time', 'create.operations',

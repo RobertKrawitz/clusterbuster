@@ -21,6 +21,11 @@ class memory_analysis(SpreadsheetAnalysis):
     Analyze memory workload data for spreadsheet reports.
     """
 
+    @staticmethod
+    def __augment_parser_workload(parser):
+        """Register workload-specific command-line flags for analyze-clusterbuster-report."""
+        pass
+
     def __init__(self, workload: str, data: dict, metadata: dict):
         dimensions = ['By Replicas', 'By Processes', 'By Memory Size', 'By Scan Pattern']
         variables = [

@@ -27,6 +27,8 @@ import importlib
 import inspect
 import traceback
 import gzip
+import glob
+import pathlib
 from .metrics.PrometheusMetrics import PrometheusMetrics
 from ..prettyprint import fformat, prettyprint
 from ..reporting_exceptions import ClusterBusterReportingException
@@ -42,7 +44,7 @@ class _ClusterBusterReporterJobMismatchException(ClusterBusterReporterException)
         super().__init__(f"Mismatched {var} in status ({val1} vs {val2})")
 
 
-class _ClusterBusterBadReportException(ClusterBusterReportingException):
+class _ClusterBusterBadReportException(ClusterBusterReporterException):
     def __init__(self, item):
         if item is None:
             super().__init__("No valid ClusterBuster report found")
@@ -50,23 +52,121 @@ class _ClusterBusterBadReportException(ClusterBusterReportingException):
             super().__init__(f"{item} is not a ClusterBuster report")
 
 
-class _ClusterBusterUnrecognizedWorkloadException(ClusterBusterReportingException):
+class _ClusterBusterUnrecognizedWorkloadException(ClusterBusterReporterException):
     def __init__(self, item):
         super().__init__(f"{item}: cannot identify workload")
 
 
-class _ClusterBusterUnrecognizedItemException(ClusterBusterReportingException):
+class _ClusterBusterUnrecognizedItemException(ClusterBusterReporterException):
     def __init__(self, item):
         super().__init__(f"Unrecognized item {item}")
+
+
+class _ClusterBusterNoReportsException(ClusterBusterReporterException):
+    def __init__(self):
+        super().__init__("No reports found")
+
+
+class _ClusterBusterReporterListFormats(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        print('\n'.join(ClusterBusterReporter._get_report_formats()))
+        sys.exit(0)
 
 
 class ClusterBusterReporter:
     """
     Report generator for ClusterBuster
     """
+    @staticmethod
+    def print_report(args=None, outfile=sys.stdout):
+        if args is None:
+            args = ClusterBusterReporter.parse_args()
+        report_format = args.format
+        answers, status = ClusterBusterReporter.__report(args)
+        if report_format.endswith('python'):
+            print(answers, file=outfile)
+        elif report_format.startswith('json'):
+            json.dump(answers, outfile, indent=2)
+        elif report_format != "none":
+            if report_format.startswith('parseable'):
+                delim = ''
+            else:
+                delim = '\n\n'
+            answers = [answer for answer in answers if (answer is not None and answer != '')]
+            if answers:
+                print(delim.join(answers), file=outfile)
+        return status
 
     @staticmethod
-    def __report_one(item: str, jdata: dict, report_format: str, extras=None):
+    def report(files, report_format, metrics=True, indent=2, report_width=78):
+        # ClusterBusterReporter.report API for loader: code written by Cursor (Auto).
+        """
+        Build json/text reports for report directories or JSON paths (used by ClusterBusterLoader).
+        Returns (answers, ok) where answers is a list of per-report payloads and ok is overall success.
+        """
+        if files is None:
+            files = []
+        elif isinstance(files, str):
+            files = [files]
+        argv = ['-o', report_format]
+        if not metrics:
+            argv.append('--no-metrics')
+        argv.extend(['--indent', str(indent), '--report_width', str(report_width)])
+        argv.extend(files)
+        args = ClusterBusterReporter.parse_args(argv)
+        return ClusterBusterReporter.__report(args)
+
+    @staticmethod
+    def augment_parser(parser=None):
+        """
+        Add arguments to any top level parser.
+        Any reporters that want to provide additional arguments
+        need to provide a static member:
+            def __augment_parser_workload(parser):
+        See memory_reporter.py for an example.
+        """
+        if parser is None:
+            parser = argparse.ArgumentParser(description='Generate ClusterBuster report')
+
+        report_formats = ClusterBusterReporter._get_report_formats()
+        parser.add_argument('--list_formats', '--list-formats', action=_ClusterBusterReporterListFormats,
+                            nargs=0, help='List available report formats')
+        parser.add_argument('-o', '--format', '--output_format', '--output-format', '--output', '--report-format',
+                            '--report_format',
+                            default='summary', metavar='format', type=str,
+                            choices=report_formats, help=f'Report format: one of {", ".join(report_formats)}')
+        parser.add_argument('--metrics', action=argparse.BooleanOptionalAction,
+                            default=True, help='Print metrics if available (or not)')
+        parser.add_argument('--indent', type=int, default=2, metavar='depth', help='Set summary report indentation')
+        parser.add_argument('--report_width', type=int, default=78, metavar='width', help='Summary report width')
+        parser.add_argument("files", metavar='files', type=str, nargs='*', help='Files to process')
+        scripts = [os.path.basename(f) for f in glob.glob(os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                                                       "*_reporter.py")) if os.path.isfile(f)]
+        for script in scripts:
+            try:
+                base = pathlib.PurePath(script).stem
+                stem = f'..{base}'
+                imported_lib = importlib.import_module(stem, __name__)
+                for i in inspect.getmembers(imported_lib):
+                    if i[0] == base:
+                        i[1].__dict__[f'_{base}__augment_parser_workload'](parser)
+            except KeyboardInterrupt:
+                os.exit(0)
+            except Exception:
+                pass
+        return parser
+
+    @staticmethod
+    def parse_args(commandlineargs=sys.argv[1:]):
+        return ClusterBusterReporter.augment_parser().parse_args(commandlineargs)
+
+    @staticmethod
+    def is_report_dir(d: str):
+        return ClusterBusterReporter.__get_report_file(d) is not None
+
+    @staticmethod
+    def __report_one(item: str, jdata: dict, args):
+        report_format = args.format
         isValid = False
         try:
             isValid = jdata['metadata']['kind'] == 'clusterbusterResults'
@@ -102,15 +202,15 @@ class ClusterBusterReporter:
         except (SyntaxError, ModuleNotFoundError) as exc:
             if isinstance(exc, ModuleNotFoundError) and exc.name.endswith(f"{workload}_reporter"):
                 print(f'Warning: no reporter for workload {workload}, issuing generic summary report', file=sys.stderr)
-                return ClusterBusterReporter(jdata, report_format, extras=extras).create_report()
+                return ClusterBusterReporter(jdata, args).__create_report()
             else:
                 raise type(exc)("%s reporter: %s: %s" % (workload, exc.__class__.__name__, exc)) from None
         for i in inspect.getmembers(imported_lib):
             if i[0] == f'{workload}_reporter':
-                return i[1](jdata, report_format, extras=extras).create_report()
+                return i[1](jdata, args).__create_report()
 
     @staticmethod
-    def validate_dir(dirname: str):
+    def __validate_dir(dirname: str):
         if dirname.find('.FAIL') >= 0 or dirname.find('.tmp') >= 0:
             return False
         if not re.search('(^|/)([-_[:lower:][:digit:]]+)-([-[:lower:][:digit:]]+)-[0-9]+[^/]*$', dirname):
@@ -118,7 +218,7 @@ class ClusterBusterReporter:
         return ClusterBusterReporter.is_report_dir(dirname)
 
     @staticmethod
-    def enumerate_dirs(items: list):
+    def __enumerate_dirs(items: list):
         answers = list()
         for item in items:
             if isinstance(item, str):
@@ -126,17 +226,21 @@ class ClusterBusterReporter:
                     answers.append(item)
                 elif os.path.isdir(item):
                     if ClusterBusterReporter.is_report_dir(item):
-                        answers.append(ClusterBusterReporter.get_report_file(item))
+                        answers.append(ClusterBusterReporter.__get_report_file(item))
                     else:
                         subitems = sorted(os.listdir(item))
                         for subitem in subitems:
                             subitem = os.path.join(item, subitem)
-                            if ClusterBusterReporter.validate_dir(subitem):
+                            if ClusterBusterReporter.__validate_dir(subitem):
                                 answers.append(ClusterBusterReporter.get_report_dir(subitem))
+                else:
+                    print(f'{item}: no such file or directory')
+        if len(items) > 0 and len(answers) == 0:
+            raise _ClusterBusterNoReportsException()
         return answers
 
     @staticmethod
-    def report(items, report_format: str, extras=None):
+    def __report(args):
         def _open_report(report):
             if report.endswith(".gz"):
                 return gzip.open(report, mode='rb')
@@ -147,13 +251,14 @@ class ClusterBusterReporter:
             # Magic gzip header
             return ios.buffer.peek(2)[:2] == b'\x1f\x8b'
 
+        items = args.files
         report_status = True
         answers = list()
         if not items:
             items = [None]
         elif not isinstance(items, list):
             items = [items]
-        for item in ClusterBusterReporter.enumerate_dirs(items):
+        for item in ClusterBusterReporter.__enumerate_dirs(items):
             is_valid_fn = os.path.splitext(item)[1].lower() == '.json'
             with _open_report(item) as f:
                 report = None
@@ -161,10 +266,11 @@ class ClusterBusterReporter:
                 try:
                     data = json.load(f)
                     data['metadata']['ReportName'] = item
-                    report, status = ClusterBusterReporter.__report_one(os.path.dirname(item), data, report_format,
-                                                                        extras=extras)
+                    report, status = ClusterBusterReporter.__report_one(os.path.dirname(item), data, args)
                     if report:
                         answers.append(report)
+                except Exception:
+                    print(traceback.format_exc())
                 except (KeyboardInterrupt, BrokenPipeError):
                     sys.exit(1)
                 except TypeError:
@@ -209,7 +315,7 @@ class ClusterBusterReporter:
                 print(f'Unrecognized report {item}, expect JSON', file=sys.stderr)
             if data:
                 try:
-                    report, status = ClusterBusterReporter.__report_one(None, data, report_format, extras=extras)
+                    report, status = ClusterBusterReporter.__report_one(None, data, args)
                     if report:
                         answers.append(report)
                 except (KeyboardInterrupt, BrokenPipeError):
@@ -232,24 +338,7 @@ class ClusterBusterReporter:
         return answers, report_status
 
     @staticmethod
-    def print_report(items, report_format: str = 'raw', outfile=sys.stdout, extras=None):
-        answers, status = ClusterBusterReporter.report(items, report_format=report_format, extras=None)
-        if report_format.endswith('python'):
-            print(answers, file=outfile)
-        elif report_format.startswith('json'):
-            json.dump(answers, outfile, indent=2)
-        elif report_format != "none":
-            if report_format.startswith('parseable'):
-                delim = ''
-            else:
-                delim = '\n\n'
-            answers = [answer for answer in answers if (answer is not None and answer != '')]
-            if answers:
-                print(delim.join(answers), file=outfile)
-        return status
-
-    @staticmethod
-    def list_report_formats():
+    def _get_report_formats():
         return ['none', 'summary', 'verbose', 'raw', 'raw-python',
                 'json-summary', 'json', 'json-verbose',
                 'parseable', 'parseable-summary', 'parseable-verbose',
@@ -259,7 +348,7 @@ class ClusterBusterReporter:
                 ]
 
     @staticmethod
-    def get_report_file(d: str):
+    def __get_report_file(d: str):
         report_files = ['clusterbuster-report.json', 'clusterbuster-report.json.gz']
         if os.path.isdir(d):
             for f in report_files:
@@ -267,29 +356,15 @@ class ClusterBusterReporter:
                     return os.path.join(d, f)
         return None
 
-    @staticmethod
-    def is_report_dir(d: str):
-        return ClusterBusterReporter.get_report_file(d) is not None
-
-    def __init__(self, jdata: dict, report_format: str, indent: int = 2, report_width=78, extras=None):
+    def __init__(self, jdata: dict, args):
         """
         Initializer for generic ClusterBuster report
         :param jdata: JSON data to report
-        :param report_format: Report format, one of json-summary, json, json-verbose, verbose, summary
-        :param indent: Per-level indentation
-        :param report_width: Width of the report
+        :param args: argparse-generated parsed arguments
         """
-        if report_format == 'parseable':
-            report_format = 'parseable-summary'
-        if report_format == 'parseable-python':
-            report_format = 'parseable-summary-python'
-        parser = argparse.ArgumentParser(description='Parse report')
-        parser.add_argument('--no-summary', action='store_true', help='Do not print standard summary')
-        self._base_args, self.__extra_args = parser.parse_known_args(extras)
+        self.args = args
         self._jdata = jdata
-        self._abs_start, self._abs_end = self.get_start_and_end()
-        self._report_format = report_format
-        self._format = report_format
+        self._abs_start, self._abs_end = self.__get_start_and_end()
         self._all_clients_are_on_the_same_node = self.__are_clients_all_on_same_node()
         self._found_pods = {}
         self._summary = {'cpu_time': 0,
@@ -299,8 +374,6 @@ class ClusterBusterReporter:
         self._rows = []
         self._timeline_vars = []
         self._accumulator_vars = []
-        self._summary_indent = indent
-        self._report_width = report_width
         self._verbose_indent = 0
         self._header_keys = {}
         self._fields_to_copy = []
@@ -308,12 +381,12 @@ class ClusterBusterReporter:
         self._add_explicit_timeline_vars(['data_start_time', 'data_end_time', 'pod_start_time', 'pod_create_time'])
         self._add_accumulators(['user_cpu_time', 'system_cpu_time', 'cpu_time', 'data_elapsed_time',
                                 'timing_parameters.sync_rtt_delta'])
-        if 'metrics' in self._jdata:
+        if args.metrics and 'metrics' in self._jdata:
             self.metrics = PrometheusMetrics(self._jdata['metrics'], self._abs_start, self._abs_end)
         else:
             self.metrics = None
 
-    def get_start_and_end(self):
+    def __get_start_and_end(self):
         """
         Retrieve start and end time for job
         """
@@ -346,7 +419,7 @@ class ClusterBusterReporter:
             print(f"{report_name}: Could not retrieve start and end times for run", file=sys.stderr)
         return start_time, end_time
 
-    def create_report(self):
+    def __create_report(self):
         """
         Create a report
         """
@@ -360,7 +433,7 @@ class ClusterBusterReporter:
         if len(rows) > 0:
             self._add_summary()
 
-        if self._format.startswith('json'):
+        if self.args.format.startswith('json'):
             return self.__create_json_report()
         else:
             return self.__create_text_report()
@@ -712,11 +785,11 @@ class ClusterBusterReporter:
         :param integer: print as integer
         :param suffix: trailing suffix (e. g. "B/sec")
         """
-        if self._format.startswith('json'):
+        if self.args.format.startswith('json'):
             return num
         if base is None:
             base = 1024
-        return prettyprint(num, base=base, parseable='parseable' in self._format, **kwargs)
+        return prettyprint(num, base=base, parseable='parseable' in self.args.format, **kwargs)
 
     def _safe_div(self, num: float, denom: float, precision: int = None, as_string: bool = False,
                   number_only: bool = False):
@@ -751,10 +824,10 @@ class ClusterBusterReporter:
         :param text: String to wrap
         :return: Filled string
         """
-        if 'parseable' in self._format:
+        if 'parseable' in self.args.format:
             return text
         else:
-            return textwrap.fill(text, width=self._report_width, subsequent_indent='  ',
+            return textwrap.fill(text, width=self.args.report_width, subsequent_indent='  ',
                                  break_long_words=False, break_on_hyphens=False)
 
     def _insert_into(self, results: dict, path: list, value):
@@ -1055,7 +1128,7 @@ class ClusterBusterReporter:
         width = 0
         integer_width = 0
         if indentation is None:
-            indentation = self._summary_indent
+            indentation = self.args.indent
         for key in results:
             if isinstance(results[key], dict):
                 fwidth, nwidth = self.__compute_report_width(results[key], indentation=indentation)
@@ -1086,7 +1159,7 @@ class ClusterBusterReporter:
         return answer
 
     def __indent(self, string: str, target_column: int):
-        if 'parseable' in self._format:
+        if 'parseable' in self.args.format:
             return string
         else:
             return textwrap.indent(string, prefix=' ' * (target_column + 2))[target_column+2:]
@@ -1111,7 +1184,7 @@ class ClusterBusterReporter:
         header_keys = []
         value_keys = []
         if depth_indentation is None:
-            depth_indentation = self._summary_indent
+            depth_indentation = self.args.indent
         for key in results.keys():
             if key in results:
                 if isinstance(results[key], dict):
@@ -1124,11 +1197,11 @@ class ClusterBusterReporter:
             headers = deepcopy(headers)
             header_name = headers.pop(0)
         for key in results.keys():
-            if 'parseable' not in self._format and key.startswith('\n'):
+            if 'parseable' not in self.args.format and key.startswith('\n'):
                 print('', file=outfile)
             npath = path + [key]
             if isinstance(results[key], dict):
-                if 'parseable' not in self._format:
+                if 'parseable' not in self.args.format:
                     if header_name:
                         print(f'{" " * key_column}{header_name}: {key.strip()}:', file=outfile)
                     else:
@@ -1140,7 +1213,7 @@ class ClusterBusterReporter:
                                        integer_width=integer_width, outfile=outfile)
             else:
                 value = results[key]
-                if 'parseable' in self._format:
+                if 'parseable' in self.args.format:
                     if '\n' in str(value):
                         value = base64.b64encode(value.encode('ascii')).decode()
                     else:
@@ -1167,7 +1240,7 @@ class ClusterBusterReporter:
                         indentation = " " * (value_column + integer_indent - key_column - len(key.strip()))
                         print(f'{" " * key_column}{key.strip()}: {indentation}{value}',
                               file=outfile)
-            if 'parseable' not in self._format and key.endswith('\n'):
+            if 'parseable' not in self.args.format and key.endswith('\n'):
                 print('', file=outfile)
 
     def __print_report(self, results: dict, outfile, value_column=0, integer_width=0):
@@ -1189,11 +1262,11 @@ class ClusterBusterReporter:
             if key in self._header_keys:
                 headers = self._header_keys[key]
             if len(results[key].keys()):
-                if 'parseable' not in self._format:
+                if 'parseable' not in self.args.format:
                     print(f'{key}:', file=outfile)
                 self.__print_subreport([key], results[key], headers=headers,
-                                       key_column=self._summary_indent, value_column=value_column,
-                                       depth_indentation=self._summary_indent,
+                                       key_column=self.args.indent, value_column=value_column,
+                                       depth_indentation=self.args.indent,
                                        integer_width=integer_width, outfile=outfile)
 
     def __create_json_report(self):
@@ -1201,7 +1274,7 @@ class ClusterBusterReporter:
         Create JSON format report
         """
         results = {}
-        if 'verbose' in self._format and len(self._rows):
+        if 'verbose' in self.args.format and len(self._rows):
             results['Detail'] = {}
             self._rows.sort(key=self.__row_name)
             for row in self._rows:
@@ -1209,18 +1282,18 @@ class ClusterBusterReporter:
         if len(self._rows) > 0 or not self._expect_row_data:
             results['Summary'] = {}
             self._generate_summary(results['Summary'])
-        if self._format.startswith('json-summary'):
+        if self.args.format.startswith('json-summary'):
             answer = {
                 'summary': self._summary,
                 'metadata': self._jdata['metadata'],
                 }
-        elif self._format.startswith('json-verbose'):
+        elif self.args.format.startswith('json-verbose'):
             answer = deepcopy(self._jdata)
             answer['processed_results'] = {
                 'summary': self._summary,
                 'rows': self._rows
                 }
-        elif self._format.startswith('json'):
+        elif self.args.format.startswith('json'):
             answer = {
                 'summary': self._summary,
                 'metadata': self._jdata['metadata'],
@@ -1239,7 +1312,7 @@ class ClusterBusterReporter:
         results['Overview'] = {}
         results['Overview']['Job Name'] = metadata['job_name']
         results['Overview']['Start Time'] = metadata.get('cluster_start_time', None)
-        if 'verbose' in self._format and len(self._rows):
+        if 'verbose' in self.args.format and len(self._rows):
             results['Detail'] = {}
             self._rows.sort(key=self.__row_name)
             for row in self._rows:
@@ -1264,14 +1337,11 @@ class ClusterBusterReporter:
             status = False
         key_width, integer_width = self.__compute_report_width(results)
         cmdline = ' '.join(metadata['expanded_command_line'])
-        if 'parseable' in self._format:
+        if 'parseable' in self.args.format:
             cmdline = ' '.join(metadata['expanded_command_line'])
         else:
             cmdline = self._wrap_text(' '.join(metadata['expanded_command_line']))
         results['Overview']['Command line'] = cmdline
-        if self._base_args.no_summary:
-            return '', status
-        else:
-            outfile = io.StringIO()
-            self.__print_report(results, outfile=outfile, value_column=key_width, integer_width=integer_width)
-            return outfile.getvalue(), status
+        outfile = io.StringIO()
+        self.__print_report(results, outfile=outfile, value_column=key_width, integer_width=integer_width)
+        return outfile.getvalue(), status

@@ -14,7 +14,6 @@
 # limitations under the License.
 
 from ..ClusterBusterAnalysis import ClusterBusterAnalysisException, ClusterBusterPostprocessBase
-import argparse
 
 
 class _ClusterBusterAnalysisJobMismatchException(ClusterBusterAnalysisException):
@@ -27,11 +26,13 @@ class AnalyzePostprocess(ClusterBusterPostprocessBase):
     Post-process ClusterBuster analysis
     """
 
-    def __init__(self, report, status, metadata, extras=None):
-        super().__init__(report, status, metadata, extras=extras)
-        parser = argparse.ArgumentParser(description="ClusterBuster loader")
-        parser.add_argument('--allow-mismatch', action='store_true')
-        self._args, self._extra_args = parser.parse_known_args(extras)
+    @staticmethod
+    def __augment_parser_report_type(parser):
+        """Optional CI analysis-format-specific CLI flags."""
+        pass
+
+    def __init__(self, report, status, metadata, extras=None, allow_mismatch=False):
+        super().__init__(report, status, metadata, extras=extras, allow_mismatch=allow_mismatch)
 
     def __CheckMatch(self, job: str, var: str, you: dict):
         if var in self._report['metadata']:
@@ -53,7 +54,7 @@ class AnalyzePostprocess(ClusterBusterPostprocessBase):
             'job_end': None,
             'job_runtime': None,
             }
-        if not self._args.allow_mismatch:
+        if not self._allow_mismatch:
             for job, job_status in self._status['jobs'].items():
                 for var in self.job_status_vars():
                     self.__CheckMatch(job, var, job_status)

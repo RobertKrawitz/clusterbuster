@@ -18,8 +18,8 @@ import sys
 
 
 class fio_loader(ClusterBusterLoadOneReportBase):
-    def __init__(self, name: str, report: dict, data: dict, extras=None):
-        super().__init__(name, report, data, extras=extras)
+    def __init__(self, name: str, report: dict, data: dict, extras=None, allow_mismatch=False):
+        super().__init__(name, report, data, extras=extras, allow_mismatch=allow_mismatch)
 
     def Load(self):
         jobs = sorted(self._metadata['workload_metadata']['jobs'])

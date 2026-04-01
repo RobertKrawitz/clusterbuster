@@ -19,8 +19,8 @@ from .ClusterBusterLoader import ClusterBusterLoadOneReportBase
 
 
 class hammerdb_loader(ClusterBusterLoadOneReportBase):
-    def __init__(self, name: str, report: dict, data: dict, extras=None):
-        super().__init__(name, report, data, extras=extras)
+    def __init__(self, name: str, report: dict, data: dict, extras=None, allow_mismatch=False):
+        super().__init__(name, report, data, extras=extras, allow_mismatch=allow_mismatch)
 
     def Load(self):
         if not self._summary.get('total_pods'):
@@ -38,7 +38,7 @@ class hammerdb_loader(ClusterBusterLoadOneReportBase):
                 root['virtual_users'] = bench.get('virtual_users')
                 break
         try:
-            root['memory'] = self._metrics['Maximum memory working set'][f'node: {self._client_pin_node}']
+            root['memory'] = self._metrics['Maximum memory']['Working set'][f'node: {self._client_pin_node}']
             root['memory_per_pod'] = root['memory'] / self._count
         except (TypeError, KeyError, ZeroDivisionError):
             pass
