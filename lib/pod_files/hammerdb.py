@@ -16,6 +16,7 @@
 #
 # HammerDB pod client: code written by Cursor (Auto).
 
+import argparse
 import glob
 import os
 import platform
@@ -84,21 +85,29 @@ class hammerdb_client(clusterbuster_pod_client):
             super().__init__()
             if platform.machine() != 'x86_64':
                 self._abort(f"HammerDB is only supported on x86_64; this host is {platform.machine()}")
-            # args: processes_per_pod, workdir, runtime, driver, database, benchmark,
-            #       virtual_users, rampup
-            self._set_processes(int(self._args[0]))
-            self.workdir = self._args[1]
-            self.runtime_sec = int(self._args[2])
-            driver_raw = (self._args[3] or '').strip()
+            p = argparse.ArgumentParser()
+            p.add_argument('--processes', type=int, required=True)
+            p.add_argument('--workdir', required=True)
+            p.add_argument('--runtime', type=int, required=True)
+            p.add_argument('--driver', required=True)
+            p.add_argument('--database', default='hammerdb')
+            p.add_argument('--benchmark', default='tpcc')
+            p.add_argument('--virtual-users', type=int, default=4)
+            p.add_argument('--rampup', type=int, default=1)
+            args = p.parse_args(self._args)
+            self._set_processes(args.processes)
+            self.workdir = args.workdir
+            self.runtime_sec = args.runtime
+            driver_raw = (args.driver or '').strip()
             if not driver_raw:
                 self._abort("hammerdb driver is required (pg or mariadb)")
             self.driver = driver_raw.lower()
             if self.driver not in ('pg', 'mariadb'):
-                self._abort(f"hammerdb driver must be pg or mariadb; got {self._args[3]!r}")
-            self.database = self._args[4] or 'hammerdb'
-            self.benchmark = (self._args[5] or 'tpcc').lower()
-            self.virtual_users = int(self._args[6] or '4')
-            self.rampup_min = int(self._args[7] or '1')
+                self._abort(f"hammerdb driver must be pg or mariadb; got {args.driver!r}")
+            self.database = args.database or 'hammerdb'
+            self.benchmark = (args.benchmark or 'tpcc').lower()
+            self.virtual_users = args.virtual_users
+            self.rampup_min = args.rampup
             # Colocated client and server
             self.host = 'localhost'
             self.port = 3306 if self.driver == 'mariadb' else 5432

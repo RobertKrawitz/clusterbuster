@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import os
 import subprocess
 import re
@@ -15,11 +16,18 @@ class uperf_client(clusterbuster_pod_client):
     def __init__(self):
         try:
             super().__init__()
-            self.runtime = int(self._args[0])
-            self.ramp_time = int(self._args[1])
-            self.srvhost = self._resolve_host(self._args[2])
-            self.connect_port = int(self._args[3])
-            self.tests = self._args[4:]
+            p = argparse.ArgumentParser()
+            p.add_argument('--runtime', type=int, required=True)
+            p.add_argument('--ramp-time', type=int, required=True)
+            p.add_argument('--server', required=True)
+            p.add_argument('--port', type=int, required=True)
+            p.add_argument('--test', action='append', default=[], dest='tests')
+            args = p.parse_args(self._args)
+            self.runtime = args.runtime
+            self.ramp_time = args.ramp_time
+            self.srvhost = self._resolve_host(args.server)
+            self.connect_port = args.port
+            self.tests = args.tests
             self.podfile_dir = os.environ.get('SYSTEM_PODFILE_DIR', '.')
             self.process_file(os.path.join(self.podfile_dir, "uperf-mini.xml"),
                               "/tmp/uperf-test.xml", {'srvhost': self.srvhost, 'runtime': 1})

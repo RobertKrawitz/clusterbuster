@@ -25,8 +25,9 @@ declare -gi ___server_port_addrs=24
 function server_server_arglist() {
     local mountdir=$1; shift
     while [[ "$1" != '--' ]] ; do shift; done; shift
-    mk_yaml_args "python3" "${mountdir}server.py" "$@" \
-		 "$___server_port" "$___msg_size" "$((containers_per_pod * replicas_per_server))"
+    mk_yaml_args "python3" "${mountdir}server.py" "${cb_pod_flags[@]}" \
+		 --listen-port "$___server_port" --msg-size "$___msg_size" \
+		 --server-expected-clients "$((containers_per_pod * replicas_per_server))"
 }
 
 function _server_sysctls() {
@@ -49,10 +50,11 @@ function server_client_arglist() {
 	bytes_transfer=$default_bytes_transfer
 	bytes_transfer_max=$default_bytes_transfer
     fi
-    mk_yaml_args "python3" "${mountdir}client.py" "$@" \
-		 "${net:+${net}@}${namespace}-server-server-${instance}-1" \
-		 "$___server_port" "$target_data_rate" "$bytes_transfer" \
-		 "$bytes_transfer_max" "$___msg_size" "$workload_run_time" "$workload_run_time_max"
+    mk_yaml_args "python3" "${mountdir}client.py" "${cb_pod_flags[@]}" \
+		 --server "${net:+${net}@}${namespace}-server-server-${instance}-1" \
+		 --port "$___server_port" --data-rate "$target_data_rate" \
+		 --bytes "$bytes_transfer" --bytes-max "$bytes_transfer_max" \
+		 --msg-size "$___msg_size" --xfer-time "$workload_run_time" --xfer-time-max "$workload_run_time_max"
 }
 
 function server_create_deployment() {

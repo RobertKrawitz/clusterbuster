@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import time
 
 from clusterbuster_pod_client import clusterbuster_pod_client, ClusterBusterPodClientException
@@ -13,8 +14,12 @@ class failure_client(clusterbuster_pod_client):
     def __init__(self):
         try:
             super().__init__()
-            self._set_processes(int(self._args[0]))
-            self.__delaytime = int(self._args[1])
+            p = argparse.ArgumentParser()
+            p.add_argument('--processes', type=int, required=True)
+            p.add_argument('--runtime', type=int, required=True)
+            args = p.parse_args(self._args)
+            self._set_processes(args.processes)
+            self.__delaytime = args.runtime
         except Exception as err:
             self._abort(f"Init failed! {err} {' '.join(self._args)}")
 

@@ -21,8 +21,8 @@
 function failure_arglist() {
     local mountdir=$1; shift
     while [[ "$1" != '--' ]] ; do shift; done; shift
-    mk_yaml_args "python3" "${mountdir}failure.py" "$@" \
-		 "$processes_per_pod" "$workload_run_time"
+    mk_yaml_args "python3" "${mountdir}failure.py" "${cb_pod_flags[@]}" \
+		 --processes "$processes_per_pod" --runtime "$workload_run_time"
 }
 
 function failure_document() {

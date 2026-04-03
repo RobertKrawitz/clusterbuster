@@ -127,9 +127,28 @@ class memory_reporter(ClusterBusterReporter):
                 '--timeline-column time:precise_format=%%.6f --timeline-column=-container_CPU:'
             ))
 
+    @staticmethod
+    def _ensure_memory_cli_attrs(args) -> None:
+        """
+        Match defaults from __augment_parser_workload when argparse did not add
+        memory-specific flags (e.g. older clusterbuster-report or a partial Namespace).
+        """
+        _defaults = (
+            ('dense_timeline', None),
+            ('precise_timeline', False),
+            ('numeric_timeline', False),
+            ('timeline_format', 'tsv'),
+            ('timeline_file', None),
+            ('timeline_column', None),
+        )
+        for name, default in _defaults:
+            if not hasattr(args, name):
+                setattr(args, name, default)
+
     def __init__(self, jdata: dict, args):
         super().__init__(jdata, args)
         self.args = args
+        memory_reporter._ensure_memory_cli_attrs(self.args)
         if self.args.dense_timeline is not None:
             if float(self.args.dense_timeline) <= 0:
                 if args.precise_timeline:

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 from clusterbuster_pod_client import clusterbuster_pod_client
 
 
@@ -11,8 +12,12 @@ class cpusoaker_client(clusterbuster_pod_client):
     def __init__(self):
         try:
             super().__init__()
-            self._set_processes(int(self._args[0]))
-            self._runtime = float(self._args[1])
+            p = argparse.ArgumentParser()
+            p.add_argument('--processes', type=int, required=True)
+            p.add_argument('--runtime', type=float, required=True)
+            args = p.parse_args(self._args)
+            self._set_processes(args.processes)
+            self._runtime = args.runtime
         except Exception as err:
             self._abort(f"Init failed! {err} {' '.join(self._args)}")
 

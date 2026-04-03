@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import os
 import time
 import subprocess
@@ -17,16 +18,25 @@ class files_client(clusterbuster_pod_client):
     def __init__(self):
         try:
             super().__init__()
-            if len(self._args) > 6:
-                self.dir_list = self._args[6:]
+            p = argparse.ArgumentParser()
+            p.add_argument('--dirs-per-volume', required=True)
+            p.add_argument('--files-per-dir', required=True)
+            p.add_argument('--blocksize', required=True)
+            p.add_argument('--block-count', required=True)
+            p.add_argument('--processes', type=int, required=True)
+            p.add_argument('--direct', required=True)
+            p.add_argument('--dir', action='append', default=[])
+            args = p.parse_args(self._args)
+            if args.dir:
+                self.dir_list = args.dir
             else:
                 self.dir_list = ['/var/tmp/clusterbuster']
-            self.dirs = self._toSize(self._args[0])
-            self.files_per_dir = self._toSize(self._args[1])
-            self.blocksize = self._toSize(self._args[2])
-            self.block_count = self._toSize(self._args[3])
-            self._set_processes(int(self._args[4]))
-            self.o_direct = self._toBool(self._args[5])
+            self.dirs = self._toSize(args.dirs_per_volume)
+            self.files_per_dir = self._toSize(args.files_per_dir)
+            self.blocksize = self._toSize(args.blocksize)
+            self.block_count = self._toSize(args.block_count)
+            self._set_processes(args.processes)
+            self.o_direct = self._toBool(args.direct)
             self.flags = 0
             if self.o_direct:
                 self.flags = os.O_DIRECT
@@ -60,17 +70,21 @@ class files_client(clusterbuster_pod_client):
                     try:
                         fd = os.open(filename, self.flags | os.O_WRONLY | os.O_CREAT)
                     except Exception as exc:
-                        raise ClusterBusterPodClientException(f"Create failed on {filename} (file {files_created}): {exc}") from None
+                        raise ClusterBusterPodClientException(
+                            f"Create failed on {filename} (file {files_created}): {exc}") from None
                     ops = ops + 1
                     files_created = files_created + 1
                     for block in range(self.block_count):
                         try:
                             answer = os.write(fd, buf)
                             if answer != self.blocksize:
-                                raise ClusterBusterPodClientException(f"Incomplete write to {filename} (file {files_created}): {answer} bytes, expect {self.blocksize}")
+                                raise ClusterBusterPodClientException(
+                                    f"Incomplete write to {filename} (file {files_created}): "
+                                    f"{answer} bytes, expect {self.blocksize}")
                             ops = ops + 1
                         except IOError as exc:
-                            raise ClusterBusterPodClientException(f"Write failed to {filename} (file {files_created}): {exc}") from None
+                            raise ClusterBusterPodClientException(
+                                f"Write failed to {filename} (file {files_created}): {exc}") from None
                     try:
                         os.close(fd)
                     except IOError as exc:

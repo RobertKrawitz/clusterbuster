@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import time
 from clusterbuster_pod_client import clusterbuster_pod_client
 
@@ -12,10 +13,16 @@ class synctest_client(clusterbuster_pod_client):
     def __init__(self):
         try:
             super().__init__()
-            self.sync_count = int(self._args[0])
-            self.sync_cluster_count = int(self._args[1])
-            self.sync_sleep = float(self._args[2])
-            self._set_processes(int(self._args[3]))
+            p = argparse.ArgumentParser()
+            p.add_argument('--count', type=int, required=True)
+            p.add_argument('--cluster-count', type=int, required=True)
+            p.add_argument('--sleep', type=float, required=True)
+            p.add_argument('--processes', type=int, required=True)
+            args = p.parse_args(self._args)
+            self.sync_count = args.count
+            self.sync_cluster_count = args.cluster_count
+            self.sync_sleep = args.sleep
+            self._set_processes(args.processes)
         except Exception as err:
             self._abort(f"Init failed! {err} {' '.join(self._args)}")
 

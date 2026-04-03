@@ -173,6 +173,7 @@ declare -i cleanup=0
 declare -i cleanup_always=0
 declare -i timeout=0
 declare pathdir=${__topdir__%/*}
+declare -ag cb_pod_flags=()
 declare -a unknown_opts=()
 declare -a unknown_opt_names=()
 declare -i total_objects_created=0
@@ -2773,6 +2774,33 @@ function mk_yaml_args() {
     fi
 }
 
+# Populate global array cb_pod_flags with --cb-* tokens for workload/drop-cache containers.
+# Called from create_standard_containers / VM runcmd before each *_arglist invocation; workloads
+# only consume "${cb_pod_flags[@]}" and no longer parse the 14 sync/drop-cache positional values.
+function cb_pod_client_flags_array() {
+    if (($# != 14)) ; then
+	fatal "cb_pod_client_flags_array requires 14 arguments, got $#"
+    fi
+    cb_pod_flags=(
+	"--cb-sync-nonce=$1"
+	"--cb-namespace=$2"
+	"--cb-container=$3"
+	"--cb-basetime=$4"
+	"--cb-baseoffset=$5"
+	"--cb-crtime=$6"
+	"--cb-exit-at-end=$7"
+	"--cb-sync-host=$8"
+	"--cb-sync-port=$9"
+	"--cb-sync-ns-port=${10}"
+	"--cb-sync-watchdog-port=${11}"
+	"--cb-sync-watchdog-timeout=${12}"
+	"--cb-drop-cache-host=${13}"
+    )
+    if [[ -n "${14}" ]] ; then
+	cb_pod_flags+=("--cb-drop-cache-port=${14}")
+    fi
+}
+
 function create_standard_containers() {
     local OPTARG
     local OPTIND=0
@@ -2810,10 +2838,10 @@ $(indent 2 standard_environment)
 $(indent 2 generate_environment)
   command:
 $(if [[ -n "${arglist_function}" ]] ; then
-     "${arglist_function}" "${system_configmap_mount_dir}/" "$@" "$container" -- \
-     "$sync_nonce" "$namespace" "c$container" "$basetime" "$baseoffset" "$(ts)" "$exit_at_end" "$sync_service" \
+     cb_pod_client_flags_array "$sync_nonce" "$namespace" "c$container" "$basetime" "$baseoffset" "$(ts)" "$exit_at_end" "$sync_service" \
      "$sync_port_num" "$sync_ns_port_num" "$sync_watchdog_port_num" "$sync_watchdog_timeout" \
-     "$drop_cache_service" "$drop_cache_port_num" | indent 2 ; fi)
+     "$drop_cache_service" "$drop_cache_port_num"
+     "${arglist_function}" "${system_configmap_mount_dir}/" "$@" "$container" -- | indent 2 ; fi)
 $(indent 2 volume_mounts_yaml "$namespace" "${instance}" "$secret_count")
 $(indent 2 <<< "${security_context:-}")
 EOF
@@ -4121,10 +4149,10 @@ $(indent 16 _setup_commands)
 $(indent 16 _setup_sysctls)
               runcmd:
                 - "$(standard_environment -V) $(_run_as_root)  $(_run_as_container)$(if [[ -n "${arglist_function}" ]] ; then
-     ARGLIST_FORMAT=vm "${arglist_function}" "${system_configmap_mount_dir}/" "$@" "0" -- \
-     "$sync_nonce" "$namespace" "c0" "$basetime" "$baseoffset" "$(ts)" "$exit_at_end" "$sync_service" \
+     cb_pod_client_flags_array "$sync_nonce" "$namespace" "c0" "$basetime" "$baseoffset" "$(ts)" "$exit_at_end" "$sync_service" \
      "$sync_port_num" "$sync_ns_port_num" "$sync_watchdog_port_num" "$sync_watchdog_timeout" \
-     "$drop_cache_service" "$drop_cache_port_num" ; fi)"
+     "$drop_cache_service" "$drop_cache_port_num"
+     ARGLIST_FORMAT=vm "${arglist_function}" "${system_configmap_mount_dir}/" "$@" "0" -- ; fi)"
 EOF
     done
 }
@@ -4272,19 +4300,19 @@ $(indent 2 standard_environment)
   command:
   - "python3"
   - "$system_configmap_mount_dir/sync.py"
-  - "$sync_nonce"
-  - "$sync_flag_file"
-  - "$sync_error_file"
-  - "$controller_timestamp_file"
-  - "$predelay"
-  - "$postdelay"
-  - "$workload_step_interval"
-  - "$sync_port"
-  - "$sync_ns_port"
-  - "$sync_watchdog_port_num"
-  - "$sync_watchdog_timeout"
-  - "$expected_clients"
-  - "$initial_expected_clients"
+  - "--cb-sync-nonce=$sync_nonce"
+  - "--cb-sync-file=$sync_flag_file"
+  - "--cb-error-file=$sync_error_file"
+  - "--cb-controller-timestamp-file=$controller_timestamp_file"
+  - "--cb-predelay=$predelay"
+  - "--cb-postdelay=$postdelay"
+  - "--cb-step-interval=$workload_step_interval"
+  - "--cb-listen-port=$sync_port"
+  - "--cb-ns-port=$sync_ns_port"
+  - "--cb-watchdog-port=$sync_watchdog_port_num"
+  - "--cb-watchdog-timeout=$sync_watchdog_timeout"
+  - "--cb-expected-clients=$expected_clients"
+  - "--cb-initial-expected-clients=$initial_expected_clients"
 $(indent 2 volume_mounts_yaml -V "$namespace" 0 0)
   resources:
     requests:
@@ -4344,20 +4372,20 @@ $(indent 2 standard_environment)
   command:
   - "python3"
   - "${system_configmap_mount_dir}/drop_cache.py"
-  - "$sync_nonce"
-  - "$namespace"
-  - "c0"
-  - "$basetime"
-  - "$baseoffset"
-  - "$(ts)"
-  - "0"
-  - "$sync_service"
-  - "$sync_port_num"
-  - "$sync_ns_port"
-  - "$sync_watchdog_port_num"
-  - "$sync_watchdog_timeout"
-  - "none"
-  - "$drop_cache_port"
+  - "--cb-sync-nonce=$sync_nonce"
+  - "--cb-namespace=$namespace"
+  - "--cb-container=c0"
+  - "--cb-basetime=$basetime"
+  - "--cb-baseoffset=$baseoffset"
+  - "--cb-crtime=$(ts)"
+  - "--cb-exit-at-end=0"
+  - "--cb-sync-host=$sync_service"
+  - "--cb-sync-port=$sync_port_num"
+  - "--cb-sync-ns-port=$sync_ns_port"
+  - "--cb-sync-watchdog-port=$sync_watchdog_port_num"
+  - "--cb-sync-watchdog-timeout=$sync_watchdog_timeout"
+  - "--cb-drop-cache-host=none"
+  - "--cb-drop-cache-port=$drop_cache_port"
 $(indent 2 volume_mounts_yaml -V "$namespace" 0 0)
   - mountPath: "/proc-sys-vm"
     name: "proc-sys-vm"
@@ -5038,6 +5066,15 @@ function validate_volumes() {
     volumes=("${nvolumes[@]}")
 }
 
+function finalize_expanded_command_line_extra_args() {
+    [[ ${#extra_args[@]} -eq 0 ]] && return 0
+    if declare -F "${requested_workload}_finalize_extra_cli_args" &>/dev/null; then
+	"${requested_workload}_finalize_extra_cli_args"
+    else
+	processed_options+=("${extra_args[@]}")
+    fi
+}
+
 function validate_options() {
     [[ -z "$requested_workload" ]] && help "Workload must be specified with --workload"
 
@@ -5180,5 +5217,7 @@ shift $((OPTIND - 1))
 extra_args=("$@")
 
 validate_options
+
+finalize_expanded_command_line_extra_args
 
 (run_clusterbuster_1) 4>&2

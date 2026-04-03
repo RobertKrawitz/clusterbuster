@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import argparse
 import time
 import re
 import json
@@ -21,7 +22,37 @@ import os
 import sys
 import signal
 import resource
+from typing import Sequence
+
 from cb_util import cb_util
+
+
+def add_sync_pod_arguments(p: argparse.ArgumentParser) -> None:
+    """Flags for the sync pod (this script)."""
+    p.add_argument('--cb-sync-nonce', required=True)
+    p.add_argument('--cb-sync-file', required=True)
+    p.add_argument('--cb-error-file', required=True)
+    p.add_argument('--cb-controller-timestamp-file', required=True)
+    p.add_argument('--cb-predelay', type=float, required=True)
+    p.add_argument('--cb-postdelay', type=float, required=True)
+    p.add_argument('--cb-step-interval', type=float, required=True)
+    p.add_argument('--cb-listen-port', type=int, required=True)
+    p.add_argument('--cb-ns-port', type=int, required=True)
+    p.add_argument('--cb-watchdog-port', type=int, required=True)
+    p.add_argument('--cb-watchdog-timeout', type=int, required=True)
+    p.add_argument('--cb-expected-clients', type=int, required=True)
+    p.add_argument('--cb-initial-expected-clients', type=int, required=True)
+
+
+def parse_sync_pod_cb(argv: Sequence[str]) -> argparse.Namespace:
+    p = argparse.ArgumentParser(exit_on_error=False)
+    add_sync_pod_arguments(p)
+    try:
+        return p.parse_args(list(argv[1:]))
+    except argparse.ArgumentError as exc:
+        print(f"sync.py: {exc}", file=sys.stderr)
+        sys.exit(2)
+
 
 offset_from_controller = 0
 timebase = cb_util(offset_from_controller)
@@ -490,24 +521,22 @@ def finish():
 
 
 print(sys.argv, file=sys.stderr)
-try:
-    sync_nonce = sys.argv[1]
-    sync_file = sys.argv[2]
-    error_file = sys.argv[3]
-    controller_timestamp_file = sys.argv[4]
-    predelay = float(sys.argv[5])
-    postdelay = float(sys.argv[6])
-    step_interval = float(sys.argv[7])
-    listen_port = int(sys.argv[8])
-    ns_port = int(sys.argv[9])
-    watchdog_port = int(sys.argv[10])
-    watchdog_timeout = int(sys.argv[11])
-    expected_clients = int(sys.argv[12])
-    initial_expected_clients = int(sys.argv[13])
-    if initial_expected_clients < 0:
-        initial_expected_clients = expected_clients
-except Exception as exc:
-    timebase._timestamp(f"Can't initialize arguments: {exc}")
+ns = parse_sync_pod_cb(sys.argv)
+sync_nonce = ns.cb_sync_nonce
+sync_file = ns.cb_sync_file
+error_file = ns.cb_error_file
+controller_timestamp_file = ns.cb_controller_timestamp_file
+predelay = ns.cb_predelay
+postdelay = ns.cb_postdelay
+step_interval = ns.cb_step_interval
+listen_port = ns.cb_listen_port
+ns_port = ns.cb_ns_port
+watchdog_port = ns.cb_watchdog_port
+watchdog_timeout = ns.cb_watchdog_timeout
+expected_clients = ns.cb_expected_clients
+initial_expected_clients = ns.cb_initial_expected_clients
+if initial_expected_clients < 0:
+    initial_expected_clients = expected_clients
 
 start_time = time.time()
 base_start_time = start_time

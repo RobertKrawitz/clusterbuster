@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import signal
 from clusterbuster_pod_client import clusterbuster_pod_client
 
@@ -12,6 +13,8 @@ class waitforever_client(clusterbuster_pod_client):
     def __init__(self):
         try:
             super().__init__()
+            p = argparse.ArgumentParser()
+            p.parse_args(self._args)
         except Exception as err:
             self._abort(f"Init failed! {err} {' '.join(self._args)}")
 

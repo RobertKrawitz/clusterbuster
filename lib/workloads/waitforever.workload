@@ -21,7 +21,7 @@
 function waitforever_arglist() {
     local mountdir=$1; shift
     while [[ "$1" != '--' ]] ; do shift; done; shift
-    mk_yaml_args "python3" "${mountdir}waitforever.py" "$@"
+    mk_yaml_args "python3" "${mountdir}waitforever.py" "${cb_pod_flags[@]}"
 }
 
 function waitforever_document() {

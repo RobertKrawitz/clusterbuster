@@ -15,7 +15,7 @@ replicas=1
 fio-patterns=read
 fio-iodepths=1
 fio-ninst=1
-fio-absolute-filesize=1Gi
+fio-filesize=1Gi
 fio-ioengines=libaio
 
 # ---- uperf ----

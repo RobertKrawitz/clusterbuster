@@ -33,12 +33,14 @@ declare -g ___memory_start_probability=
 function memory_arglist() {
     local mountdir=$1; shift
     while [[ "$1" != '--' ]] ; do shift; done; shift
-    mk_yaml_args "python3" "${mountdir}memory.py" "$@" "$processes_per_pod" \
-		 "${workload_run_time}" "$___memory_size" "$___memory_scan" \
-		 "$___memory_stride" "$___memory_iterations" \
-		 "$___memory_idle" "$___memory_random_seed" "$___memory_sync" \
-		 "$___memory_iteration_runtime" "$___memory_idle_first" \
-		 "$___memory_subproc" "$___memory_start_probability"
+    mk_yaml_args "python3" "${mountdir}memory.py" "${cb_pod_flags[@]}" \
+		 --processes "$processes_per_pod" \
+		 --runtime "${workload_run_time}" --memory-size "$___memory_size" \
+		 --scan "$___memory_scan" --stride "$___memory_stride" --iterations "$___memory_iterations" \
+		 --idle "$___memory_idle" --random-seed "$___memory_random_seed" \
+		 --sync-between-iterations "$___memory_sync" \
+		 --iteration-runtime "$___memory_iteration_runtime" --idle-first "$___memory_idle_first" \
+		 --subproc "$___memory_subproc" --start-probability "$___memory_start_probability"
 }
 
 function memory_document() {

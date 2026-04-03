@@ -29,7 +29,9 @@ function byo_arglist() {
     local mountdir=$1; shift
     while [[ "$1" != '--' ]] ; do shift; done; shift
     ___byo_args[0]="${___byo_args[0]##*/}"
-    mk_yaml_args "python3" "${mountdir}byo.py" "$@" "$processes_per_pod" "$___byo_workdir" "${___byo_args[@]}"
+    mk_yaml_args "python3" "${mountdir}byo.py" "${cb_pod_flags[@]}" \
+		 --processes "$processes_per_pod" --workdir "$___byo_workdir" \
+		 -- "${___byo_args[@]}"
 }
 
 function byo_list_user_configmaps() {
@@ -43,8 +45,10 @@ function byo_help_options() {
     cat <<EOF
     Bring Your Own Workload Options:
         Usage: ${__topsc__:-clusterbuster} [clusterbuster_args] -- command args...
-        The first argument after all ClusterBuster options is the path to the
-        command to run.  All additional arguments are passed to the command.
+        The first argument after -- is the command: an absolute path, a path
+        relative to the workload file directory, or a name resolved there first
+        and then on PATH (e.g. sleep -> /usr/bin/sleep).  Further arguments are
+        passed to the command.
         --byo-file=<file>
                         Additional file to insert into the pod.
                         The command to run is automatically inserted
@@ -95,7 +99,9 @@ function byo_workload_reporting_class() {
     if [[ -n "$___byo_name" ]] ; then
 	echo "$___byo_name"
     else
-	echo "byo_${___byo_args[0]//-/_}"
+	# Basename only: first arg may be /usr/bin/sleep — slashes are not valid in class names.
+	local base=${___byo_args[0]##*/}
+	echo "byo_${base//-/_}"
     fi
 }
 
@@ -115,6 +121,21 @@ function byo_requires_drop_cache() {
 
 function byo_requires_writable_workdir() {
     true
+}
+
+function byo_finalize_extra_cli_args() {
+    local __cb_a
+    local __cb_saved_argv_has_dd=
+    for __cb_a in "${saved_argv[@]}" ; do
+	if [[ "$__cb_a" = "--" ]] ; then
+	    __cb_saved_argv_has_dd=1
+	    break
+	fi
+    done
+    if [[ -n "${__cb_saved_argv_has_dd:-}" ]] ; then
+	processed_options+=('--')
+    fi
+    processed_options+=("${extra_args[@]}")
 }
 
 register_workload byo byowl bringyourown

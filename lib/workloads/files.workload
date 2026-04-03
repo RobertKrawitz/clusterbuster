@@ -39,9 +39,16 @@ function files_arglist() {
     local containers_per_pod=$5
     while [[ "$1" != '--' ]] ; do shift; done; shift
     local -i file_blocks=$((___file_size/___file_block_size))
-    mk_yaml_args "python3" "${mountdir}files.py" "$@" \
-		 "$___file_dirs_per_volume" "$___files_per_dir" "$___file_block_size" "$file_blocks" \
-		 "$processes_per_pod" "$___files_direct" "${___files_dirs[@]}"
+    local -a dargs=()
+    local d
+    for d in "${___files_dirs[@]}" ; do
+	dargs+=(--dir "$d")
+    done
+    mk_yaml_args "python3" "${mountdir}files.py" "${cb_pod_flags[@]}" \
+		 --dirs-per-volume "$___file_dirs_per_volume" --files-per-dir "$___files_per_dir" \
+		 --blocksize "$___file_block_size" --block-count "$file_blocks" \
+		 --processes "$processes_per_pod" --direct "$___files_direct" \
+		 "${dargs[@]}"
 }
 
 function files_help_options() {

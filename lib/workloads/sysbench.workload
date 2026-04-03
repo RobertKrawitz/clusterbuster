@@ -28,11 +28,17 @@ function sysbench_arglist() {
     local mountdir=$1; shift
     while [[ "$1" != '--' ]] ; do shift; done; shift
     local workdir=${common_workdir:-${emptydirs[0]:-/tmp}}
-    mk_yaml_args "python3" "${mountdir}sysbench.py" "$@" \
-		 "$processes_per_pod" "$workdir" "$workload_run_time" "$___sysbench_workload" \
-		 "${___sysbench_fileio_test_string:+$___sysbench_fileio_test_string}" \
-		 "${___sysbench_fileio_mode_string:+$___sysbench_fileio_mode_string}" \
-		 "${___sysbench_options[@]}"
+    local -a sbopt=()
+    local o
+    for o in "${___sysbench_options[@]}" ; do
+	sbopt+=(--sysbench-option "$o")
+    done
+    mk_yaml_args "python3" "${mountdir}sysbench.py" "${cb_pod_flags[@]}" \
+		 --processes "$processes_per_pod" --rundir "$workdir" --runtime "$workload_run_time" \
+		 --workload "$___sysbench_workload" \
+		 --fileio-tests "${___sysbench_fileio_test_string:+$___sysbench_fileio_test_string}" \
+		 --fileio-modes "${___sysbench_fileio_mode_string:+$___sysbench_fileio_mode_string}" \
+		 "${sbopt[@]}"
 }
 
 function sysbench_help_options() {
