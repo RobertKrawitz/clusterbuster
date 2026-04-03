@@ -1,0 +1,302 @@
+# Workload option regression cases (see run-workload-option-tests.sh).
+# Requires PyYAML (python3-pyyaml).
+# clusterbuster_args: list of argv tokens after the clusterbuster invocation.
+
+# deployment_targets: which deployment types each case is allowed to use (intersected with CLI --deployment-targets).
+defaults:
+  deployment_targets:
+  - pod
+  - vm
+cases:
+  P0:
+  - id: sleep-rt
+    workload: sleep
+    run_mode: both
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - sleep
+    - --workload-runtime=8
+  - id: cpusoak-basic
+    workload: cpusoaker
+    run_mode: both
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - cpusoaker
+    - --workload-runtime=5
+    - --processes=2
+  - id: failure-dry
+    workload: failure
+    run_mode: dry
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - failure
+    - --workload-runtime=3
+  - id: waitforever-dry
+    workload: waitforever
+    run_mode: dry
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - waitforever
+  - id: logger-opts
+    workload: logger
+    run_mode: both
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - logger
+    - --workload-runtime=5
+    - --log-bytes-per-line=64
+    - --log-lines-per-io=2
+    - --log-xfer-count=3
+    - --log-delay=0.01
+  - id: pausepod-basic
+    workload: pausepod
+    run_mode: both
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - pausepod
+  - id: synctest-bundle
+    workload: synctest
+    run_mode: both
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - synctest
+    - --workload-runtime=10
+    - --synctest-count=3
+    - --synctest-cluster-count=2
+    - --synctest-sleep=0
+  - id: memory-bundle
+    workload: memory
+    run_mode: both
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - memory
+    - --workload-runtime=8
+    - --memory-size=2Mi
+    - --memory-stride=4096
+    - --memory-iterations=1
+    - --memory-sync-between-iterations=1
+  - id: files-bundle
+    workload: files
+    run_mode: both
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - files
+    - --workload-runtime=5
+    - --dirs-per-volume=1
+    - --files-per-dir=8
+    - --file-block-size=4096
+    - --file-size=64Ki
+  - id: sysbench-memory
+    workload: sysbench
+    run_mode: both
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - sysbench
+    - --workload-runtime=20
+    - --sysbench-workload=memory
+    - --sysbench-time=5
+  - id: fio-bundle
+    workload: fio
+    run_mode: both
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - fio
+    - --workload-runtime=15
+    - --fio-patterns=read
+    - --fio-blocksizes=4096
+    - --fio-iodepth=1
+    - --fio-numjobs=1
+    - --fio-ramp-time=2
+  - id: uperf-bundle
+    workload: uperf
+    run_mode: both
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - uperf
+    - --workload-runtime=20
+    - --uperf-msg-size=2048
+    - --uperf-test-type=stream
+    - --uperf-protocol=tcp
+    - --uperf-nthr=1
+    - --uperf-ramp-time=2
+  - id: server-msgsize
+    workload: server
+    run_mode: both
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - server
+    - --workload-runtime=15
+    - --msgsize=16384
+  - id: byo-sleep
+    workload: byo
+    run_mode: both
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - byo
+    - --byo-workload=optest
+    - --byo-drop-cache=0
+    - --
+    - /usr/bin/sleep
+    - '1'
+  P1:
+  - id: sleep-proc
+    workload: sleep
+    run_mode: both
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - sleep
+    - --workload-runtime=5
+    - --processes=2
+  - id: failure-live
+    workload: failure
+    run_mode: live
+    expect_fail: true
+    clusterbuster_args:
+    - -w
+    - failure
+    - --workload-runtime=2
+    - --cleanup
+    - --exit-at-end
+  - id: waitforever-live
+    workload: waitforever
+    run_mode: live
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - waitforever
+    - --timeout=90
+    - --cleanup
+    - --exit-at-end
+  - id: hammerdb-pg-tpcc
+    workload: hammerdb
+    run_mode: both
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - hammerdb
+    - --hammerdb-driver=pg
+    - --hammerdb-benchmark=tpcc
+    - --hammerdb-virtual-users=2
+    - --hammerdb-rampup=1
+    - --workload-runtime=30
+  - id: sleep-sync
+    workload: sleep
+    run_mode: both
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - sleep
+    - --workload-runtime=3
+    - --sync-in-first-namespace=1
+  - id: fio-write
+    workload: fio
+    run_mode: both
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - fio
+    - --workload-runtime=12
+    - --fio-patterns=write
+    - --fio-blocksizes=8192
+    - --fio-iodepth=2
+    - --fio-ramp-time=2
+  - id: uperf-rr
+    workload: uperf
+    run_mode: both
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - uperf
+    - --workload-runtime=18
+    - --uperf-msg-size=512
+    - --uperf-test-type=rr
+    - --uperf-protocol=tcp
+    - --uperf-nthr=1
+  - id: memory-rand
+    workload: memory
+    run_mode: both
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - memory
+    - --workload-runtime=6
+    - --memory-size=1Mi
+    - --memory-scan=random
+    - --memory-iterations=1
+  - id: sysbench-fileio
+    workload: sysbench
+    run_mode: both
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - sysbench
+    - --workload-runtime=12
+    - --sysbench-workload=fileio
+    - --sysbench-fileio-tests=rndrd
+    - --sysbench-fileio-modes=sync
+  - id: server-rate
+    workload: server
+    run_mode: both
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - server
+    - --workload-runtime=10
+    - --msgsize=8192
+    - --targetdatarate=10M
+  - id: hammerdb-maria
+    workload: hammerdb
+    run_mode: both
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - hammerdb
+    - --hammerdb-driver=mariadb
+    - --hammerdb-benchmark=tpcc
+    - --hammerdb-virtual-users=1
+    - --workload-runtime=30
+  - id: byo-workdir
+    workload: byo
+    run_mode: both
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - byo
+    - --byo-workdir=/var/tmp/cb-byotest
+    - --
+    - /usr/bin/sleep
+    - '1'
+  - id: logger-min
+    workload: logger
+    run_mode: both
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - logger
+    - --workload-runtime=4
+  - id: synctest-min
+    workload: synctest
+    run_mode: both
+    expect_fail: false
+    clusterbuster_args:
+    - -w
+    - synctest
+    - --workload-runtime=5
+    - --synctest-count=2
+    - --synctest-cluster-count=1
+
