@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import os
 import subprocess
 import re
@@ -17,24 +18,40 @@ class fio_client(clusterbuster_pod_client):
     def __init__(self):
         try:
             super().__init__()
-            self._set_processes(int(self._args[0]))
-            self.rundir = self._args[1]
-            self.runtime = int(self._args[2])
-            self.jobfilesdir = self._args[3]
-            self.fio_blocksizes = self._toSizes(self._args[4])
-            self.fio_patterns = re.split(r'\s+', self._args[5])
-            self.fio_iodepths = self._toSizes(self._args[6])
-            self.fio_numjobs = self._toSizes(self._args[7])
-            self.fio_fdatasyncs = self._toBools(self._args[8])
-            self.fio_directs = self._toBools(self._args[9])
-            if self._args[10]:
-                self.fio_ioengines = re.split(r'\s+', self._args[10])
+            p = argparse.ArgumentParser()
+            p.add_argument('--processes', type=int, required=True)
+            p.add_argument('--rundir', required=True)
+            p.add_argument('--runtime', type=int, required=True)
+            p.add_argument('--jobfiles-dir', required=True)
+            p.add_argument('--blocksizes', required=True)
+            p.add_argument('--patterns', required=True)
+            p.add_argument('--iodepths', required=True)
+            p.add_argument('--numjobs', required=True)
+            p.add_argument('--fdatasyncs', required=True)
+            p.add_argument('--directs', required=True)
+            p.add_argument('--ioengines', default='')
+            p.add_argument('--ramptime', required=True)
+            p.add_argument('--drop-cache', required=True)
+            p.add_argument('--fio-options', default='')
+            args = p.parse_args(self._args)
+            self._set_processes(args.processes)
+            self.rundir = args.rundir
+            self.runtime = args.runtime
+            self.jobfilesdir = args.jobfiles_dir
+            self.fio_blocksizes = self._toSizes(args.blocksizes)
+            self.fio_patterns = re.split(r'\s+', args.patterns)
+            self.fio_iodepths = self._toSizes(args.iodepths)
+            self.fio_numjobs = self._toSizes(args.numjobs)
+            self.fio_fdatasyncs = self._toBools(args.fdatasyncs)
+            self.fio_directs = self._toBools(args.directs)
+            if args.ioengines:
+                self.fio_ioengines = re.split(r'\s+', args.ioengines)
             else:
                 self.fio_ioengines = []
-            self.fio_ramptime = self._toSizes(self._args[11])
-            self.fio_drop_cache = self._toBool(self._args[12])
-            if self._args[13]:
-                self.fio_generic_args = re.split(r'\s+', self._args[13])
+            self.fio_ramptime = self._toSizes(args.ramptime)
+            self.fio_drop_cache = self._toBool(args.drop_cache)
+            if args.fio_options:
+                self.fio_generic_args = re.split(r'\s+', args.fio_options)
             else:
                 self.fio_generic_args = []
         except Exception as err:
@@ -101,7 +118,8 @@ Drop cache:  {self.fio_drop_cache}""")
                         for fdatasync in self.fio_fdatasyncs:
                             for direct in self.fio_directs:
                                 for ioengine in self.fio_ioengines:
-                                    jobname = '%04d-%s-%d-%d-%d-%d-%d-%s' % (jobidx, pattern, size, iodepth, numjobs, fdatasync, direct, ioengine)
+                                    jobname = '%04d-%s-%d-%d-%d-%d-%d-%s' % (
+                                        jobidx, pattern, size, iodepth, numjobs, fdatasync, direct, ioengine)
                                     if self.fio_drop_cache:
                                         self._drop_cache()
                                     self._sync_to_controller(jobname)
@@ -112,9 +130,12 @@ Drop cache:  {self.fio_drop_cache}""")
                                     jucpu, jscpu = self._cputimes()
                                     with tempfile.NamedTemporaryFile() as output:
                                         outfile = output.name
-                                        command = ['fio', f'--rw={pattern}', f'--runtime={self.runtime}', f'--bs={size}',
-                                                   f'--iodepth={iodepth}', f'--fdatasync={int(fdatasync)}', f'--direct={int(direct)}',
-                                                   f'--ioengine={ioengine}', '--allow_file_create=0', f'--numjobs={numjobs}']
+                                        command = [
+                                            'fio', f'--rw={pattern}', f'--runtime={self.runtime}', f'--bs={size}',
+                                            f'--iodepth={iodepth}', f'--fdatasync={int(fdatasync)}',
+                                            f'--direct={int(direct)}', f'--ioengine={ioengine}',
+                                            '--allow_file_create=0', f'--numjobs={numjobs}',
+                                        ]
                                         if not self.fio_drop_cache:
                                             command.append('--invalidate=0')
                                         command.extend(self.fio_generic_args)

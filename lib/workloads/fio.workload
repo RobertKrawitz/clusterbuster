@@ -45,11 +45,14 @@ function fio_arglist() {
     local replicas=$4
     local containers_per_pod=$5
     while [[ "$1" != '--' ]] ; do shift; done; shift
-    mk_yaml_args "python3" "${mountdir}fio.py" "$@" \
-		 "$processes_per_pod" "$___fio_workdir" "$workload_run_time" "$user_configmap_mount_dir" \
-		 "${___fio_blocksizes[*]:-}" "${___fio_patterns[*]:-}" "${___fio_iodepths[*]:-}" "${___fio_numjobs[*]:-}" \
-		 "${___fio_fdatasyncs[*]:-}" "${___fio_directs[*]:-}" "${___fio_ioengines[*]:-}" \
-		 "$___fio_ramp_time" "$___fio_drop_cache" "${___fio_options[*]:-}"
+    mk_yaml_args "python3" "${mountdir}fio.py" "${cb_pod_flags[@]}" \
+		 --processes "$processes_per_pod" --rundir "$___fio_workdir" --runtime "$workload_run_time" \
+		 --jobfiles-dir "$user_configmap_mount_dir" \
+		 --blocksizes "${___fio_blocksizes[*]:-}" --patterns "${___fio_patterns[*]:-}" \
+		 --iodepths "${___fio_iodepths[*]:-}" --numjobs "${___fio_numjobs[*]:-}" \
+		 --fdatasyncs "${___fio_fdatasyncs[*]:-}" --directs "${___fio_directs[*]:-}" \
+		 --ioengines "${___fio_ioengines[*]:-}" \
+		 --ramptime "$___fio_ramp_time" --drop-cache "$___fio_drop_cache" --fio-options "${___fio_options[*]:-}"
 }
 
 function fio_list_user_configmaps() {

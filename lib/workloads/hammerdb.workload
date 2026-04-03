@@ -34,10 +34,11 @@ function hammerdb_arglist() {
     local mountdir=$1; shift
     while [[ "$1" != '--' ]] ; do shift; done; shift
     local workdir=${___hammerdb_workdir:-${common_workdir:-${emptydirs[0]:-/tmp}}}
-    mk_yaml_args "python3" "${mountdir}hammerdb.py" "$@" \
-		 "$processes_per_pod" "$workdir" "$workload_run_time" "$___hammerdb_driver" \
-		 "$___hammerdb_database" "$___hammerdb_benchmark" "$___hammerdb_virtual_users" \
-		 "$___hammerdb_rampup"
+    mk_yaml_args "python3" "${mountdir}hammerdb.py" "${cb_pod_flags[@]}" \
+		 --processes "$processes_per_pod" --workdir "$workdir" --runtime "$workload_run_time" \
+		 --driver "$___hammerdb_driver" --database "$___hammerdb_database" \
+		 --benchmark "$___hammerdb_benchmark" --virtual-users "$___hammerdb_virtual_users" \
+		 --rampup "$___hammerdb_rampup"
 }
 
 function hammerdb_help_options() {

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import os
 import subprocess
 import re
@@ -18,19 +19,28 @@ class sysbench_client(clusterbuster_pod_client):
         try:
             super().__init__()
             self.np = '([0-9]+([kmgt]i)?)b'
-            self._set_processes(int(self._args[0]))
-            self.rundir = self._args[1]
-            self.runtime = int(self._args[2])
-            self.workload = self._args[3]
-            if self._args[4]:
-                self.sysbench_fileio_tests = self._splitStr(r'\s+', self._args[4])
+            p = argparse.ArgumentParser()
+            p.add_argument('--processes', type=int, required=True)
+            p.add_argument('--rundir', required=True)
+            p.add_argument('--runtime', type=int, required=True)
+            p.add_argument('--workload', required=True)
+            p.add_argument('--fileio-tests', default='')
+            p.add_argument('--fileio-modes', default='')
+            p.add_argument('--sysbench-option', action='append', default=[])
+            args = p.parse_args(self._args)
+            self._set_processes(args.processes)
+            self.rundir = args.rundir
+            self.runtime = args.runtime
+            self.workload = args.workload
+            if args.fileio_tests:
+                self.sysbench_fileio_tests = self._splitStr(r'\s+', args.fileio_tests)
             else:
                 self.sysbench_fileio_tests = ['seqwr', 'seqrewr', 'seqrd', 'rndrd', 'rndwr', 'rndrw']
-            if self._args[5]:
-                self.sysbench_fileio_modes = self._splitStr(r'\s+', self._args[5])
+            if args.fileio_modes:
+                self.sysbench_fileio_modes = self._splitStr(r'\s+', args.fileio_modes)
             else:
                 self.sysbench_fileio_modes = ['sync']
-            self.sysbench_options = self._args[6:]
+            self.sysbench_options = args.sysbench_option
             self.runit_cpu = self.runit_simple
             self.runit_memory = self.runit_simple
             self.runit_mutex = self.runit_simple

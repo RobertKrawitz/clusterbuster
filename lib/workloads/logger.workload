@@ -26,8 +26,10 @@ declare -g ___log_delay=0
 function logger_arglist() {
     local mountdir=$1; shift
     while [[ "$1" != '--' ]] ; do shift; done; shift
-    mk_yaml_args "python3" "${mountdir}logger.py" "$@" \
-		 "$processes_per_pod" "$workload_run_time" "$___log_bytes_per_line" "$___log_lines_per_io" "$___log_xfer_count" "$___log_delay"
+    mk_yaml_args "python3" "${mountdir}logger.py" "${cb_pod_flags[@]}" \
+		 --processes "$processes_per_pod" --runtime "$workload_run_time" \
+		 --bytes-per-line "$___log_bytes_per_line" --lines-per-io "$___log_lines_per_io" \
+		 --xfer-count "$___log_xfer_count" --delay "$___log_delay"
 }
 
 function logger_workload_reporting_class() {

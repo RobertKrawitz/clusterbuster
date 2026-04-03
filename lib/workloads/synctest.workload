@@ -26,8 +26,9 @@ declare -g ___synctest_sleep=0
 function synctest_arglist() {
     local mountdir=$1; shift
     while [[ "$1" != '--' ]] ; do shift; done; shift
-    mk_yaml_args "python3" "${mountdir}synctest.py" "$@" \
-		 "$___synctest_count" "$___synctest_cluster_count" "$___synctest_sleep" "$processes_per_pod"
+    mk_yaml_args "python3" "${mountdir}synctest.py" "${cb_pod_flags[@]}" \
+		 --count "$___synctest_count" --cluster-count "$___synctest_cluster_count" \
+		 --sleep "$___synctest_sleep" --processes "$processes_per_pod"
 }
 
 function synctest_help_options() {

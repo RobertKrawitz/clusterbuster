@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright 2022 Robert Krawitz/Red Hat
+# Copyright 2022-2026 Robert Krawitz/Red Hat
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import argparse
 import time
 import socket
 import json
@@ -25,6 +26,8 @@ import signal
 import random
 import traceback
 import shutil
+from typing import List, Optional, Sequence, Tuple
+
 from cb_util import cb_util
 
 
@@ -37,6 +40,47 @@ class clusterbuster_pod_client(cb_util):
     """
     Python interface to the ClusterBuster pod API
     """
+
+    @staticmethod
+    def _optional_drop_cache_port(value: str) -> Optional[int]:
+        if value is None or value == '':
+            return None
+        try:
+            return int(value)
+        except ValueError:
+            return None
+
+    @staticmethod
+    def add_workload_pod_client_arguments(p: argparse.ArgumentParser) -> None:
+        """Flags injected for workload and drop-cache containers (see clusterbuster create_standard_containers)."""
+        p.add_argument('--cb-sync-nonce', required=True)
+        p.add_argument('--cb-namespace', required=True)
+        p.add_argument('--cb-container', required=True)
+        p.add_argument('--cb-basetime', type=float, required=True)
+        p.add_argument('--cb-baseoffset', type=float, required=True)
+        p.add_argument('--cb-crtime', type=float, required=True)
+        p.add_argument('--cb-exit-at-end', required=True)
+        p.add_argument('--cb-sync-host', required=True)
+        p.add_argument('--cb-sync-port', type=int, required=True)
+        p.add_argument('--cb-sync-ns-port', type=int, required=True)
+        p.add_argument('--cb-sync-watchdog-port', type=int, required=True)
+        p.add_argument('--cb-sync-watchdog-timeout', type=int, required=True)
+        p.add_argument('--cb-drop-cache-host', required=True)
+        p.add_argument('--cb-drop-cache-port', type=clusterbuster_pod_client._optional_drop_cache_port, default=None)
+
+    @staticmethod
+    def parse_workload_pod_client_cb(argv: Sequence[str]) -> Tuple[argparse.Namespace, List[str]]:
+        """
+        Parse --cb-* arguments from argv (typically sys.argv). Returns (namespace, workload_argv_tokens).
+        workload_argv_tokens are tokens not consumed by --cb-* (for per-workload argparse).
+        """
+        p = argparse.ArgumentParser(add_help=False, exit_on_error=False)
+        clusterbuster_pod_client.add_workload_pod_client_arguments(p)
+        try:
+            return p.parse_known_args(list(argv[1:]))
+        except argparse.ArgumentError as exc:
+            print(f"clusterbuster_pod_client: {exc}", file=sys.stderr)
+            sys.exit(2)
 
     def __init__(self, initialize_timing_if_needed: bool = True, argv: list = sys.argv, external_sync_only: bool = False):
         # We need to have the nonce very early to initialize.
@@ -58,29 +102,22 @@ class clusterbuster_pod_client(cb_util):
         else:
             self.__external_sync_only = False
             print(f'Args: {" ".join(argv)}', file=sys.stderr)
-            # No use in catching errors here, since we may not be sufficiently initialized
-            # to signal them back.
-            if len(argv) < 9:
-                print("clusterbuster_pod_client: incomplete argument list", file=sys.stderr)
-                os._exit(1)
-            print(f"clusterbuster_pod_client {argv}", file=sys.stderr)
-            self.__sync_nonce = argv[1]
-            self.__namespace = argv[2]
-            self.__container = argv[3]
-            self.__basetime = float(argv[4])
-            self.__baseoffset = float(argv[5])
-            self.__crtime = float(argv[6])
-            self.__exit_at_end = self._toBool(argv[7])
-            self.__synchost = argv[8]
-            self.__syncport = int(argv[9])
-            self.__sync_ns_port = int(argv[10])
-            self.__sync_watchdog_port = int(argv[11])
-            self.__sync_watchdog_timeout = int(argv[12])
-            self.__drop_cache_host = argv[13]
-            try:
-                self.__drop_cache_port = int(argv[14])
-            except Exception:
-                self.__drop_cache_port = None
+            ns, workload_argv = clusterbuster_pod_client.parse_workload_pod_client_cb(argv)
+            print(f"clusterbuster_pod_client cb: {ns} workload_argv={workload_argv}", file=sys.stderr)
+            self.__sync_nonce = ns.cb_sync_nonce
+            self.__namespace = ns.cb_namespace
+            self.__container = ns.cb_container
+            self.__basetime = ns.cb_basetime
+            self.__baseoffset = ns.cb_baseoffset
+            self.__crtime = ns.cb_crtime
+            self.__exit_at_end = self._toBool(ns.cb_exit_at_end)
+            self.__synchost = ns.cb_sync_host
+            self.__syncport = ns.cb_sync_port
+            self.__sync_ns_port = ns.cb_sync_ns_port
+            self.__sync_watchdog_port = ns.cb_sync_watchdog_port
+            self.__sync_watchdog_timeout = ns.cb_sync_watchdog_timeout
+            self.__drop_cache_host = ns.cb_drop_cache_host
+            self.__drop_cache_port = ns.cb_drop_cache_port
             self.__is_worker = False
             self.__start_time = float(time.time())
             self.__enable_sync = True
@@ -103,7 +140,7 @@ class clusterbuster_pod_client(cb_util):
                         signal.pause()
             if child == 0:
                 self.__pod = os.environ.get('__CB_HOSTNAME', socket.gethostname())
-                self._args = argv[15:]
+                self._args = workload_argv
                 self.__timing_parameters = {}
                 self.__timing_initialized = False
                 if initialize_timing_if_needed:

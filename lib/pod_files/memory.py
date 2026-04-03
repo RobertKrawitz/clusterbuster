@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import time
 import signal
 from random import randint, seed, random
@@ -19,21 +20,34 @@ class memory_client(clusterbuster_pod_client):
     def __init__(self):
         try:
             super().__init__()
-            self._timestamp(self._args[5])
-            self._timestamp(' '.join(self._args))
-            self._set_processes(int(self._args[0]))
-            self.__runtime = float(self._args[1])
-            self.__memory = self.parse_param(self._args[2])
-            self.__scan = int(self._args[3])
-            self.__stride = int(self._args[4])
-            self.__iterations = int(self._args[5])
-            self.__idle = self.parse_param(self._args[6])
-            self.__random_seed = self._args[7]
-            self.__sync_between_iterations = bool(int(self._args[8]))
-            self.__iteration_runtime = self.parse_param(self._args[9])
-            self.__sleep_first = int(self._args[10])
-            self.__run_in_subproc = bool(int(self._args[11]))
-            self.__start_probability = None if self._args[12] == '' else float(self._args[12])
+            p = argparse.ArgumentParser()
+            p.add_argument('--processes', type=int, required=True)
+            p.add_argument('--runtime', type=float, required=True)
+            p.add_argument('--memory-size', required=True)
+            p.add_argument('--scan', type=int, required=True)
+            p.add_argument('--stride', type=int, required=True)
+            p.add_argument('--iterations', type=int, required=True)
+            p.add_argument('--idle', required=True)
+            p.add_argument('--random-seed', default='')
+            p.add_argument('--sync-between-iterations', type=int, required=True)
+            p.add_argument('--iteration-runtime', required=True)
+            p.add_argument('--idle-first', type=int, required=True)
+            p.add_argument('--subproc', type=int, required=True)
+            p.add_argument('--start-probability', default='')
+            args = p.parse_args(self._args)
+            self._set_processes(args.processes)
+            self.__runtime = args.runtime
+            self.__memory = self.parse_param(args.memory_size)
+            self.__scan = args.scan
+            self.__stride = args.stride
+            self.__iterations = args.iterations
+            self.__idle = self.parse_param(args.idle)
+            self.__random_seed = args.random_seed
+            self.__sync_between_iterations = bool(args.sync_between_iterations)
+            self.__iteration_runtime = self.parse_param(args.iteration_runtime)
+            self.__sleep_first = args.idle_first
+            self.__run_in_subproc = bool(args.subproc)
+            self.__start_probability = None if args.start_probability == '' else float(args.start_probability)
             if self.__start_probability is not None and (self.__start_probability < 0 or self.__start_probability > 1):
                 raise ClusterBusterPodClientException(f"Start probability must be between 0 and 1 ({self.__start_probability})")
 #            if self.__runtime > 0:

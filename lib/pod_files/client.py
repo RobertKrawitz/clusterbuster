@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import time
 import random
 import math
@@ -15,14 +16,24 @@ class client_client(clusterbuster_pod_client):
     def __init__(self):
         try:
             super().__init__()
-            self.srvhost = self._resolve_host(self._args[0])
-            self.connect_port = int(self._args[1])
-            self.data_rate = self._toSize(self._args[2])
-            self.nbytes = self._toSize(self._args[3])
-            self.bytes_max = self._toSize(self._args[4])
-            self.msg_size = self._toSize(self._args[5])
-            self.xfertime = self._toSize(self._args[6])
-            self.xfertime_max = self._toSize(self._args[7])
+            p = argparse.ArgumentParser()
+            p.add_argument('--server', required=True)
+            p.add_argument('--port', type=int, required=True)
+            p.add_argument('--data-rate', required=True)
+            p.add_argument('--bytes', required=True)
+            p.add_argument('--bytes-max', required=True)
+            p.add_argument('--msg-size', required=True)
+            p.add_argument('--xfer-time', required=True)
+            p.add_argument('--xfer-time-max', required=True)
+            args = p.parse_args(self._args)
+            self.srvhost = self._resolve_host(args.server)
+            self.connect_port = args.port
+            self.data_rate = self._toSize(args.data_rate)
+            self.nbytes = self._toSize(args.bytes)
+            self.bytes_max = self._toSize(args.bytes_max)
+            self.msg_size = self._toSize(args.msg_size)
+            self.xfertime = self._toSize(args.xfer_time)
+            self.xfertime_max = self._toSize(args.xfer_time_max)
         except Exception as err:
             self._abort(f"Init failed! {err} {' '.join(self._args)}")
 
@@ -51,7 +62,7 @@ class client_client(clusterbuster_pod_client):
         data_start_time = self._adjusted_time()
         time_overhead = self._calibrate_time()
         starttime = data_start_time
-        while (nbytes > 0 and data_sent < bytes) or (xfertime > 0 and self._adjusted_time() - data_start_time < xfertime):
+        while (nbytes > 0 and data_sent < nbytes) or (xfertime > 0 and self._adjusted_time() - data_start_time < xfertime):
             rtt_start = self._adjusted_time()
             nleft = self.msg_size
             while nleft > 0:

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import sys
 import time
 from clusterbuster_pod_client import clusterbuster_pod_client
@@ -13,12 +14,20 @@ class logger_client(clusterbuster_pod_client):
     def __init__(self):
         try:
             super().__init__()
-            self._set_processes(int(self._args[0]))
-            self.__xfer_time = float(self._args[1])
-            self.__bytes_per_line = self._toSize(self._args[2])
-            self.__lines_per_io = self._toSize(self._args[3])
-            self.__xfer_count = self._toSize(self._args[4])
-            self.__delay = float(self._args[5])
+            p = argparse.ArgumentParser()
+            p.add_argument('--processes', type=int, required=True)
+            p.add_argument('--runtime', type=float, required=True)
+            p.add_argument('--bytes-per-line', required=True)
+            p.add_argument('--lines-per-io', required=True)
+            p.add_argument('--xfer-count', required=True)
+            p.add_argument('--delay', type=float, required=True)
+            args = p.parse_args(self._args)
+            self._set_processes(args.processes)
+            self.__xfer_time = args.runtime
+            self.__bytes_per_line = self._toSize(args.bytes_per_line)
+            self.__lines_per_io = self._toSize(args.lines_per_io)
+            self.__xfer_count = self._toSize(args.xfer_count)
+            self.__delay = args.delay
         except Exception as err:
             self._abort(f"Init failed! {err} {' '.join(self._args)}")
 

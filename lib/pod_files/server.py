@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import os
 
 from clusterbuster_pod_client import clusterbuster_pod_client
@@ -13,9 +14,14 @@ class server_client(clusterbuster_pod_client):
     def __init__(self):
         try:
             super().__init__()
-            self.listen_port = int(self._args[0])
-            self.msg_size = self._toSize(self._args[1])
-            self.expected_clients = int(self._args[2])
+            p = argparse.ArgumentParser()
+            p.add_argument('--listen-port', type=int, required=True)
+            p.add_argument('--msg-size', required=True)
+            p.add_argument('--server-expected-clients', type=int, required=True)
+            args = p.parse_args(self._args)
+            self.listen_port = args.listen_port
+            self.msg_size = self._toSize(args.msg_size)
+            self.expected_clients = args.server_expected_clients
             self.buf = b'B' * self.msg_size
         except Exception as err:
             self._abort(f"Init failed! {err} {' '.join(self._args)}")

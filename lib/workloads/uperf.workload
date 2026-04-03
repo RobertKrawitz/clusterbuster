@@ -30,7 +30,8 @@ declare -gi ___uperf_ramp_time=3
 function uperf_server_arglist() {
     local mountdir=$1; shift
     while [[ "$1" != '--' ]] ; do shift; done; shift
-    mk_yaml_args "python3" "${mountdir}uperf-server.py" "$@" "$___uperf_port"
+    mk_yaml_args "python3" "${mountdir}uperf-server.py" "${cb_pod_flags[@]}" \
+		 --listen-port "$___uperf_port"
 }
 
 function uperf_sysctls() {
@@ -49,9 +50,16 @@ function uperf_client_arglist() {
     local net
     # We need the address of the server, hence using $uperf_interface_pod_server
     net=$(get_net_interface_local server)
-    mk_yaml_args "python3" "${mountdir}uperf-client.py" "$@" "$workload_run_time" "$___uperf_ramp_time" \
-		 "${net:+${net}@}${namespace}-uperf-server-${instance}-1" \
-		 "$___uperf_port" "${___uperf_tests[@]}"
+    local -a utest=()
+    local t
+    for t in "${___uperf_tests[@]}" ; do
+	utest+=(--test "$t")
+    done
+    mk_yaml_args "python3" "${mountdir}uperf-client.py" "${cb_pod_flags[@]}" \
+		 --runtime "$workload_run_time" --ramp-time "$___uperf_ramp_time" \
+		 --server "${net:+${net}@}${namespace}-uperf-server-${instance}-1" \
+		 --port "$___uperf_port" \
+		 "${utest[@]}"
 }
 
 function uperf_create_deployment() {
