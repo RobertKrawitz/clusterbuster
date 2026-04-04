@@ -36,7 +36,7 @@ class RunConfig:
     report_dir: Path | None = None
     deployment_targets: str = "pod"
     filter_priority: str | None = None
-    filter_workload: str | None = None
+    filter_workloads: tuple[str, ...] | None = None
     metrics_choice: int | None = None  # None -> default 0 for live
     report_format: str = "raw"
     global_timeout: int = 2400
@@ -113,13 +113,13 @@ def _write_results_json(
         "results": results,
     }
     fp = cfg.filter_priority or ""
-    fw = cfg.filter_workload or ""
+    fw = cfg.filter_workloads
     if fp or fw:
         doc["filters"] = {}
         if fp:
             doc["filters"]["priority"] = fp
         if fw:
-            doc["filters"]["workload"] = fw
+            doc["filters"]["workloads"] = list(fw)
     if cfg.mode == "live":
         mc = cfg.metrics_choice if cfg.metrics_choice is not None else 0
         doc["live_options"] = {
@@ -156,8 +156,11 @@ def _write_summary_md(
     ]
     if cfg.filter_priority:
         lines.append(f"- **priority filter**: {cfg.filter_priority}")
-    if cfg.filter_workload:
-        lines.append(f"- **workload filter**: {cfg.filter_workload}")
+    if cfg.filter_workloads:
+        lines.append(
+            "- **workload filter**: "
+            + ", ".join(cfg.filter_workloads)
+        )
     if cfg.mode == "live":
         mc = cfg.metrics_choice if cfg.metrics_choice is not None else 0
         lines.append(f"- **metrics**: {'enabled' if mc == 1 else 'disabled'}")
@@ -290,8 +293,9 @@ def run_suite(cfg: RunConfig) -> int:
         if cfg.filter_priority and row.priority != cfg.filter_priority:
             _record_skip(f"priority filter ({row.priority} != {cfg.filter_priority})")
             continue
-        if cfg.filter_workload and row.workload != cfg.filter_workload:
-            _record_skip("workload filter")
+        if cfg.filter_workloads and row.workload not in cfg.filter_workloads:
+            allowed = ", ".join(cfg.filter_workloads)
+            _record_skip(f"workload filter ({row.workload!r} not in {allowed})")
             continue
         if not should_run:
             _record_skip(f"run_mode={row.run_mode} with --mode={cfg.mode}")

@@ -58,7 +58,7 @@ Run `./tests/workload-options/run-workload-option-tests.sh --help` for the full 
 | `--report-dir` | Output directory (default: timestamped dir under `reports/`) |
 | `--deployment-targets` | `pod`, `vm`, `pod,vm`, or `all` (default: `pod`) |
 | `-p`, `--priority` | If set to `P0` or `P1`, only rows with that priority |
-| `-w`, `--workload` | If set, only rows whose workload column matches |
+| `-w`, `--workload` | Repeat for each workload name; only matching rows run (e.g. `-w byo -w fio`) |
 | `--global-timeout` | Live: seconds for `--timeout` (default 2400); `0` omits `--timeout` |
 | `--report-format` | Live: value for `--report` (default `raw`) |
 | `--metrics` | Live: allow metrics (omit `--force-no-metrics`) |

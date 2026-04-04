@@ -54,3 +54,17 @@ def test_run_config_defaults():
     c = RunConfig()
     assert c.mode == "dry"
     assert c.results_format == "json"
+    assert c.filter_workloads is None
+
+
+def test_workload_filter_repeated_flags():
+    from workload_options.cli import _normalize_workload_filters, build_parser
+
+    assert _normalize_workload_filters(None) is None
+    assert _normalize_workload_filters(["byo"]) == ("byo",)
+    assert _normalize_workload_filters(["byo", "fio", "uperf"]) == ("byo", "fio", "uperf")
+    assert _normalize_workload_filters(["byo", "byo", "fio"]) == ("byo", "fio")
+
+    p = build_parser()
+    a = p.parse_args(["-w", "a", "--workload", "b"])
+    assert a.filter_workloads == ["a", "b"]
