@@ -45,14 +45,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="pod, vm, pod,vm, or all",
     )
     p.add_argument("-p", "--priority", dest="filter_priority", help="Only rows with this priority (P0, P1, …)")
-    p.add_argument(
-        "-w",
-        "--workload",
-        dest="filter_workloads",
-        action="append",
-        metavar="NAME",
-        help="Only rows for this workload (repeat for multiple, e.g. -w byo -w fio)",
-    )
     m = p.add_mutually_exclusive_group()
     m.add_argument("--metrics", action="store_true", help="Live: do not pass --force-no-metrics")
     m.add_argument("--no-metrics", action="store_true", help="Live: pass --force-no-metrics (default for live)")
@@ -71,13 +63,19 @@ def build_parser() -> argparse.ArgumentParser:
         default="json",
         help="Primary machine-readable output",
     )
+    p.add_argument(
+        "filter_workloads",
+        nargs="*",
+        metavar="WORKLOAD",
+        help="Only rows for these workload names (optional; list after all options, e.g. … --deployment-targets all byo fio uperf)",
+    )
     return p
 
 
-def _normalize_workload_filters(raw: list[str] | None) -> tuple[str, ...] | None:
+def _normalize_workload_filters(raw: list[str]) -> tuple[str, ...] | None:
     if not raw:
         return None
-    # First-occurrence order; drop duplicates (e.g. repeated -w same name)
+    # First-occurrence order; drop duplicates
     return tuple(dict.fromkeys(raw))
 
 
@@ -101,7 +99,7 @@ def main(argv: list[str] | None = None) -> int:
         report_dir=args.report_dir,
         deployment_targets=args.deployment_targets,
         filter_priority=args.filter_priority,
-        filter_workloads=_normalize_workload_filters(args.filter_workloads),
+        filter_workloads=_normalize_workload_filters(list(args.filter_workloads)),
         metrics_choice=metrics_choice,
         report_format=args.report_format,
         global_timeout=args.global_timeout,

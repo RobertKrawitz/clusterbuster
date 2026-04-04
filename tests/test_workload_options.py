@@ -57,14 +57,16 @@ def test_run_config_defaults():
     assert c.filter_workloads is None
 
 
-def test_workload_filter_repeated_flags():
+def test_workload_filter_positional_rest():
     from workload_options.cli import _normalize_workload_filters, build_parser
 
-    assert _normalize_workload_filters(None) is None
+    assert _normalize_workload_filters([]) is None
     assert _normalize_workload_filters(["byo"]) == ("byo",)
     assert _normalize_workload_filters(["byo", "fio", "uperf"]) == ("byo", "fio", "uperf")
     assert _normalize_workload_filters(["byo", "byo", "fio"]) == ("byo", "fio")
 
     p = build_parser()
-    a = p.parse_args(["-w", "a", "--workload", "b"])
-    assert a.filter_workloads == ["a", "b"]
+    a = p.parse_args(
+        ["--mode", "dry", "--deployment-targets", "all", "byo", "fio", "uperf"]
+    )
+    assert a.filter_workloads == ["byo", "fio", "uperf"]
