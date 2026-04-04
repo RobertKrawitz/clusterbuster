@@ -18,7 +18,6 @@
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
 from clusterbuster.workload_options.runner import RunConfig, run_suite
