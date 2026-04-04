@@ -91,4 +91,18 @@ In addition, these special purpose workloads are available:
 All supported workloads are under the [lib/workloads](lib/workloads)
 directory.
 
+## Python package and shell-to-Python migration
+
+The repository includes a **`pyproject.toml`** so you can install ClusterBuster’s Python code in editable mode (reporting, workload-options harness, and future modules):
+
+```bash
+pip install -e .
+```
+
+Declared dependencies include **PyYAML**, **kubernetes**, and **openshift** (dynamic client), matching the direction of moving off raw `oc`/`kubectl` subprocesses for API-driven control-plane work where practical. OpenShift-specific behavior (for example Prometheus under `openshift-monitoring`) is preserved, not removed, during migration.
+
+**Phase 1 (workload-options test harness):** The regression driver under [`tests/workload-options/`](tests/workload-options/) is implemented in Python ([`lib/clusterbuster/workload_options/`](lib/clusterbuster/workload_options/)). The `.sh` scripts there are thin wrappers; you can run `python3 -m clusterbuster.workload_options` (or the `run_workload_option_tests.py` entry point with `PYTHONPATH=lib`) with the same flags as before. See that directory’s README for details.
+
+**Later phases (separate PRs):** Porting the main [`clusterbuster`](clusterbuster) bash driver, [`lib/libclusterbuster.sh`](lib/libclusterbuster.sh), workload plugins under [`lib/workloads/`](lib/workloads/), [`run-perf-ci-suite`](run-perf-ci-suite) (including folding in node image pull / `force-pull-clusterbuster-image`), and CI workloads under [`lib/CI/workloads/`](lib/CI/workloads/) is intentionally split across multiple pull requests. Work on the first phase lives on branches named with a **phase-1** (or similar) suffix so scope stays clear.
+
 Please peruse the [full documentation](docs/clusterbuster.md)
