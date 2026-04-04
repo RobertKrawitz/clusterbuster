@@ -24,8 +24,8 @@ from workload_options.runner import RunConfig, run_suite
 
 
 def _repo_root() -> Path:
-    # tests/workload_options/cli.py -> repo root
-    return Path(__file__).resolve().parents[2]
+    # tests/workload-options/workload_options/cli.py -> repo root
+    return Path(__file__).resolve().parents[3]
 
 
 def build_parser() -> argparse.ArgumentParser:

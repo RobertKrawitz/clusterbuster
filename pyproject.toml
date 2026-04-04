@@ -23,5 +23,5 @@ dev = [
 where = ["lib"]
 
 [tool.pytest.ini_options]
-pythonpath = ["lib", "tests"]
+pythonpath = ["lib", "tests/workload-options"]
 testpaths = ["tests"]

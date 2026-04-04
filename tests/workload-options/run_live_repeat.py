@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO / "tests"))
+sys.path.insert(0, str(REPO / "tests" / "workload-options"))
 
 from workload_options.repeat import main
 

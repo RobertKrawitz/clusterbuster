@@ -26,7 +26,7 @@ def main(argv: list[str] | None = None) -> int:
     if rest and rest[0] == "--":
         rest = rest[1:]
 
-    root = Path(__file__).resolve().parents[2]
+    root = Path(__file__).resolve().parents[3]
     tests_wl = root / "tests" / "workload-options"
 
     for i in range(1, max_iter + 1):

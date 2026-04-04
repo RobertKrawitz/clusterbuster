@@ -213,8 +213,8 @@ def run_suite(cfg: RunConfig) -> int:
         return 2
 
     run_id = time.strftime("%Y%m%d_%H%M%S")
-    # __file__ is tests/workload_options/runner.py -> parents[2] = repo root
-    repo_root = Path(__file__).resolve().parents[2]
+    # tests/workload-options/workload_options/runner.py -> parents[3] = repo root
+    repo_root = Path(__file__).resolve().parents[3]
     tests_wl = repo_root / "tests" / "workload-options"
     if cfg.report_dir is None:
         report_dir = tests_wl / "reports" / f"run_{run_id}"

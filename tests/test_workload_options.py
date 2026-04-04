@@ -1,7 +1,7 @@
 # Copyright 2026 Robert Krawitz/Red Hat
 # Licensed under the Apache License, Version 2.0
 
-"""Smoke tests for tests/workload_options (no cluster required)."""
+"""Smoke tests for tests/workload-options/workload_options (no cluster required)."""
 
 from __future__ import annotations
 

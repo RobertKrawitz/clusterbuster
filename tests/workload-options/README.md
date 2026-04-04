@@ -2,7 +2,7 @@
 
 This directory exercises **workload-specific option bundles** by invoking `clusterbuster` with representative flags derived from [`lib/workloads/*.workload`](../../lib/workloads/).
 
-**Dependencies:** Python 3 with **PyYAML** (e.g. `python3-pyyaml`) to load [`cases.yaml`](cases.yaml). The runner is **Python** under [`tests/workload_options/`](../../tests/workload_options/) (test infrastructure, not the installed `clusterbuster` package); the `.sh` scripts are thin wrappers. From the repo root: `PYTHONPATH=tests python3 -m workload_options` (same flags as below), or use the wrapper scripts which set `PYTHONPATH` for you.
+**Dependencies:** Python 3 with **PyYAML** (e.g. `python3-pyyaml`) to load [`cases.yaml`](cases.yaml). The runner is **Python** under [`workload_options/`](workload_options/) in this directory (test infrastructure, not the installed `clusterbuster` package); the `.sh` scripts are thin wrappers. From the repo root: `PYTHONPATH=tests/workload-options python3 -m workload_options` (same flags as below), or use the wrapper scripts which set `PYTHONPATH` for you.
 
 ## Quick start (dry run)
 
@@ -12,7 +12,7 @@ From the repository root (requires `kubectl` or `oc` in `PATH` for `clusterbuste
 ./tests/workload-options/run-workload-option-tests.sh --mode dry
 ```
 
-Equivalent: `./tests/workload-options/run-workload-option-tests.sh` (dry is the default). Same as `python3 tests/workload-options/run_workload_option_tests.py --mode dry` (the script adds `tests/` to `PYTHONPATH`).
+Equivalent: `./tests/workload-options/run-workload-option-tests.sh` (dry is the default). Same as `python3 tests/workload-options/run_workload_option_tests.py --mode dry` (the script adds `tests/workload-options` to `PYTHONPATH`).
 
 Reports are written under `tests/workload-options/reports/run_YYYYMMDD_HHMMSS/`:
 
