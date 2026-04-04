@@ -78,12 +78,17 @@ class byo_client(clusterbuster_pod_client):
         elapsed_time = data_end_time - data_start_time
         results = {}
         if success:
-            try:
-                results = json.loads(answer)
-            except json.decoder.JSONDecodeError as e:
-                results['Status'] = 'FAIL'
-                results['Error'] = str(e)
-                results['Output'] = answer
+            raw = (answer or '').strip()
+            if not raw:
+                # Commands like /usr/bin/sleep emit no stdout; treat as success without JSON metrics.
+                results = {'Status': 'PASS'}
+            else:
+                try:
+                    results = json.loads(raw)
+                except json.decoder.JSONDecodeError as e:
+                    results['Status'] = 'FAIL'
+                    results['Error'] = str(e)
+                    results['Output'] = answer
         else:
             results['Status'] = 'FAIL'
             results['Output'] = answer
