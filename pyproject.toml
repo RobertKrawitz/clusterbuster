@@ -21,3 +21,7 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["lib"]
+
+[tool.pytest.ini_options]
+pythonpath = ["lib"]
+testpaths = ["tests"]
