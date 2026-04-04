@@ -9,7 +9,7 @@ import sys
 import time
 from pathlib import Path
 
-from clusterbuster.workload_options.cli import main as cli_main
+from workload_options.cli import main as cli_main
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -26,7 +26,7 @@ def main(argv: list[str] | None = None) -> int:
     if rest and rest[0] == "--":
         rest = rest[1:]
 
-    root = Path(__file__).resolve().parents[3]
+    root = Path(__file__).resolve().parents[2]
     tests_wl = root / "tests" / "workload-options"
 
     for i in range(1, max_iter + 1):

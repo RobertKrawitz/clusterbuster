@@ -93,7 +93,7 @@ directory.
 
 ## Python package and shell-to-Python migration
 
-The repository includes a **`pyproject.toml`** so you can install ClusterBuster’s Python code in editable mode (reporting, workload-options harness, and future modules):
+The repository includes a **`pyproject.toml`** so you can install ClusterBuster’s Python code in editable mode (reporting and future modules). The workload-options regression harness lives under [`tests/workload_options/`](tests/workload_options/) (test infrastructure, not part of the installed package):
 
 ```bash
 pip install -e .
@@ -101,7 +101,7 @@ pip install -e .
 
 Declared dependencies include **PyYAML**, **kubernetes**, and **openshift** (dynamic client), matching the direction of moving off raw `oc`/`kubectl` subprocesses for API-driven control-plane work where practical. OpenShift-specific behavior (for example Prometheus under `openshift-monitoring`) is preserved, not removed, during migration.
 
-**Phase 1 (workload-options test harness):** The regression driver under [`tests/workload-options/`](tests/workload-options/) is implemented in Python ([`lib/clusterbuster/workload_options/`](lib/clusterbuster/workload_options/)). The `.sh` scripts there are thin wrappers; you can run `python3 -m clusterbuster.workload_options` (or the `run_workload_option_tests.py` entry point with `PYTHONPATH=lib`) with the same flags as before. See that directory’s README for details. Offline checks: `pip install -e .` and `pytest tests/test_workload_options.py` (pytest is configured to use `lib/` on the path via `pyproject.toml`).
+**Phase 1 (workload-options test harness):** The regression driver under [`tests/workload-options/`](tests/workload-options/) (`cases.yaml`, reports, wrappers) calls into Python under [`tests/workload_options/`](tests/workload_options/). The `.sh` scripts are thin wrappers; you can run `PYTHONPATH=tests python3 -m workload_options` from the repo root (or `tests/workload-options/run_workload_option_tests.py`, which sets the path) with the same flags as before. See that directory’s README for details. Offline checks: `pip install -e .` (for reporting deps) and `pytest tests/test_workload_options.py` (pytest adds `lib/` and `tests/` on the path via `pyproject.toml`).
 
 **Later phases (separate PRs):** Porting the main [`clusterbuster`](clusterbuster) bash driver, [`lib/libclusterbuster.sh`](lib/libclusterbuster.sh), workload plugins under [`lib/workloads/`](lib/workloads/), [`run-perf-ci-suite`](run-perf-ci-suite) (including folding in node image pull / `force-pull-clusterbuster-image`), and CI workloads under [`lib/CI/workloads/`](lib/CI/workloads/) is intentionally split across multiple pull requests. Work on the first phase lives on branches named with a **phase-1** (or similar) suffix so scope stays clear.
 

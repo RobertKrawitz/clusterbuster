@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from clusterbuster.workload_options.cases import CaseRow, iter_case_rows
+from workload_options.cases import CaseRow, iter_case_rows
 
 
 @dataclass
@@ -213,8 +213,8 @@ def run_suite(cfg: RunConfig) -> int:
         return 2
 
     run_id = time.strftime("%Y%m%d_%H%M%S")
-    # __file__ is lib/clusterbuster/workload_options/runner.py -> parents[3] = repo root
-    repo_root = Path(__file__).resolve().parents[3]
+    # __file__ is tests/workload_options/runner.py -> parents[2] = repo root
+    repo_root = Path(__file__).resolve().parents[2]
     tests_wl = repo_root / "tests" / "workload-options"
     if cfg.report_dir is None:
         report_dir = tests_wl / "reports" / f"run_{run_id}"

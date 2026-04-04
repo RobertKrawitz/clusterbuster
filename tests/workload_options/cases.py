@@ -25,7 +25,7 @@ try:
     import yaml
 except ImportError as exc:  # pragma: no cover
     raise SystemExit(
-        "clusterbuster.workload_options: install PyYAML (e.g. python3-pyyaml)"
+        "workload_options: install PyYAML (e.g. python3-pyyaml)"
     ) from exc
 
 

@@ -1,1 +1,1 @@
-# ClusterBuster Python package (reporting, workload-options harness, future kube facade).
+# ClusterBuster Python package (reporting, future kube facade).

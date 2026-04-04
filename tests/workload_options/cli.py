@@ -20,11 +20,12 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from clusterbuster.workload_options.runner import RunConfig, run_suite
+from workload_options.runner import RunConfig, run_suite
 
 
 def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+    # tests/workload_options/cli.py -> repo root
+    return Path(__file__).resolve().parents[2]
 
 
 def build_parser() -> argparse.ArgumentParser:
