@@ -380,11 +380,19 @@ function list_profiles() {
     local prefix=${1:-}
     function list_profiles_1() {
 	shopt -s nullglob
-	for f in "${__profiledir__}"/*.profile ; do
-	    f=${f%%.profile}
-	    f=${f##*/}
-	    echo "$f"
+	declare -A seen=()
+	local f base
+	for f in "${__profiledir__}"/*.yaml "${__profiledir__}"/*.yml "${__profiledir__}"/*.profile ; do
+	    [[ -e "$f" ]] || continue
+	    base=${f##*/}
+	    base=${base%%.yaml}
+	    base=${base%%.yml}
+	    base=${base%%.profile}
+	    seen[$base]=1
 	done
+	for base in "${!seen[@]}" ; do
+	    echo "$base"
+	done | LC_ALL=C sort
     }
     while read -r profile ; do
 	echo "$prefix$profile"
@@ -392,33 +400,61 @@ function list_profiles() {
 }
 
 function process_profile() {
-    local profile=$1
+    local profile_arg=$1
     local profile_in_dir=0
-    if [[ $profile != *'/'* ]] ; then
-	profile="${__profiledir__}/${profile}.profile"
+    local profile=
+    if [[ $profile_arg != *'/'* ]] ; then
+	if [[ -f "${__profiledir__}/${profile_arg}.yaml" ]] ; then
+	    profile="${__profiledir__}/${profile_arg}.yaml"
+	elif [[ -f "${__profiledir__}/${profile_arg}.yml" ]] ; then
+	    profile="${__profiledir__}/${profile_arg}.yml"
+	elif [[ -f "${__profiledir__}/${profile_arg}.profile" ]] ; then
+	    profile="${__profiledir__}/${profile_arg}.profile"
+	else
+	    profile="${__profiledir__}/${profile_arg}.yaml"
+	fi
 	profile_in_dir=1
+    else
+	profile=$profile_arg
     fi
     if [[ -f "$profile" && -r "$profile" ]] ; then
-	local line=
-	while IFS= read -r line ; do
-	    # shellcheck disable=SC1003
-	    while [[ $line = *'\' ]] ; do
-		line=${line::-1}
-		local tline
-		IFS= read -r tline
-		[[ -z "$tline" ]] && break
-		line+="$tline"
-	    done
-	    line=${line%%#*}
-	    line=${line## }
-	    line=${line##	}
-	    if [[ -z "$line" ]] ; then continue; fi
-	    process_option "$line"
-	done < "$profile"
+	case "$profile" in
+	    *.yaml|*.yml)
+		local tf line
+		tf=$(mktemp "${TMPDIR:-/tmp}/cb-profile.XXXXXX") || fatal "mktemp failed for profile parse"
+		if ! PYTHONPATH="${__topdir__}/lib" "${PYTHON:-python3}" -m clusterbuster.ci.profile_yaml "$profile" >"$tf" ; then
+		    rm -f "$tf"
+		    fatal "Failed to parse YAML profile $profile (is PyYAML installed?)"
+		fi
+		while IFS= read -r line ; do
+		    [[ -z "$line" ]] && continue
+		    process_option "$line"
+		done <"$tf"
+		rm -f "$tf"
+		;;
+	    *)
+		local line=
+		while IFS= read -r line ; do
+		    # shellcheck disable=SC1003
+		    while [[ $line = *'\' ]] ; do
+			line=${line::-1}
+			local tline
+			IFS= read -r tline
+			[[ -z "$tline" ]] && break
+			line+="$tline"
+		    done
+		    line=${line%%#*}
+		    line=${line## }
+		    line=${line##	}
+		    if [[ -z "$line" ]] ; then continue; fi
+		    process_option "$line"
+		done < "$profile"
+		;;
+	esac
     elif ((profile_in_dir)) ; then
-	fatal "Cannot find profile $profile in $__profiledir__"
+	fatal "Cannot find profile $profile_arg in $__profiledir__"
     else
-	fatal "Cannot find profile $profile"
+	fatal "Cannot find profile $profile_arg"
     fi
 }
 
@@ -495,8 +531,9 @@ $(_document_workloads)
         --restart               Restart any failed or incomplete jobs from a
                                 prior run.  Default is no.  Can only be used
                                 with identical parameters to previous run.
-        --profile=profile       Which profile to use.  Default is no profile.
-                                Known profiles:
+        --profile=profile       Which profile to use (basename of a .yaml/.yml
+                                file under $__profiledir__, or legacy .profile).
+                                Default is no profile.  Known profiles:
 $(list_profiles '                                - ')
         --uuid=uuid             Specify a uuid for the job run.  Default is to
                                 generate one.
