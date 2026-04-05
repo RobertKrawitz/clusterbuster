@@ -2,17 +2,17 @@
 
 This directory exercises **workload-specific option bundles** by invoking `clusterbuster` with representative flags derived from [`lib/workloads/*.workload`](../../lib/workloads/).
 
-**Dependencies:** Python 3 with **PyYAML** (e.g. `python3-pyyaml`) to load [`cases.yaml`](cases.yaml).
+**Dependencies:** Python 3 with **PyYAML** (e.g. `python3-pyyaml`) to load [`cases.yaml`](cases.yaml). The runner is **Python** under [`workload_options/`](workload_options/) in this directory (test infrastructure, not the installed `clusterbuster` package). From the repo root: `PYTHONPATH=tests/workload-options python3 -m workload_options` (same flags as below), or run [`run-workload-option-tests`](run-workload-option-tests) which sets `PYTHONPATH` for you.
 
 ## Quick start (dry run)
 
 From the repository root (requires `kubectl` or `oc` in `PATH` for `clusterbuster` startup checks):
 
 ```bash
-./tests/workload-options/run-workload-option-tests.sh --mode dry
+./tests/workload-options/run-workload-option-tests --mode dry
 ```
 
-Equivalent: `./tests/workload-options/run-workload-option-tests.sh` (dry is the default).
+Equivalent: `./tests/workload-options/run-workload-option-tests` (dry is the default). Same as `python3 tests/workload-options/run-workload-option-tests --mode dry` (the script adds `tests/workload-options` to `PYTHONPATH`).
 
 Reports are written under `tests/workload-options/reports/run_YYYYMMDD_HHMMSS/`:
 
@@ -31,7 +31,7 @@ Use **`--deployment-targets`** to control whether each case runs as **pods** (de
 Run the full suite up to *N* times and stop on the first failure (or after *N* consecutive passes):
 
 ```bash
-./tests/workload-options/run-live-repeat.sh 10
+./tests/workload-options/run-live-repeat 10
 ```
 
 Each iteration uses a fresh `--report-dir` (`run_YYYYMMDD_HHMMSS_iterK`). On failure, inspect `reports/run_*/.../artifacts/<case-id>/Logs/` and the per-case `<id>.log` in that report directory.
@@ -43,12 +43,12 @@ Use `--mode live` so the script does **not** pass `-n`. You need a working kubec
 **Optional remote execution** (same pattern as other repo scripts):
 
 ```bash
-ssh user@host 'cd /path/to/clusterbuster && git pull && ./tests/workload-options/run-workload-option-tests.sh --mode live'
+ssh user@host 'cd /path/to/clusterbuster && git pull && ./tests/workload-options/run-workload-option-tests --mode live'
 ```
 
 ## Command-line options
 
-Run `./tests/workload-options/run-workload-option-tests.sh --help` for the full list.
+Run `./tests/workload-options/run-workload-option-tests --help` for the full list.
 
 | Option | Meaning |
 |--------|---------|
@@ -58,7 +58,7 @@ Run `./tests/workload-options/run-workload-option-tests.sh --help` for the full 
 | `--report-dir` | Output directory (default: timestamped dir under `reports/`) |
 | `--deployment-targets` | `pod`, `vm`, `pod,vm`, or `all` (default: `pod`) |
 | `-p`, `--priority` | If set to `P0` or `P1`, only rows with that priority |
-| `-w`, `--workload` | If set, only rows whose workload column matches |
+| trailing `WORKLOAD …` | Optional workload names after all options; only those rows run (e.g. `… --deployment-targets all byo fio uperf`) |
 | `--global-timeout` | Live: seconds for `--timeout` (default 2400); `0` omits `--timeout` |
 | `--report-format` | Live: value for `--report` (default `raw`) |
 | `--metrics` | Live: allow metrics (omit `--force-no-metrics`) |
@@ -75,6 +75,6 @@ Each case entry includes:
 
 - **`id`**, **`workload`**, **`run_mode`** (`dry`, `live`, or `both`), **`expect_fail`** (boolean), **`clusterbuster_args`** — a **YAML list of argv tokens** (strings) passed to `clusterbuster` after any `-n` / live options (for example `["-w", "sleep", "--workload-runtime=8"]`). Do not repeat **`priority`** on the case; it comes from the enclosing group key.
 
-[`load_cases_yaml.py`](load_cases_yaml.py) expands the file to the tab-separated stream consumed by the bash driver (joining `clusterbuster_args` with spaces for the shell).
+[`load-cases-yaml`](load-cases-yaml) expands the file to the tab-separated stream consumed by the bash driver (joining `clusterbuster_args` with spaces for the shell).
 
 See [`TEST_PLAN.md`](TEST_PLAN.md) for coverage goals.

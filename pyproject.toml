@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "clusterbuster"
+version = "0.0.0"
+description = "ClusterBuster workload and tooling"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "PyYAML>=6.0",
+    "kubernetes>=28.0.0",
+    "openshift>=0.13.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["lib"]
+
+[tool.pytest.ini_options]
+pythonpath = ["lib", "tests/workload-options"]
+testpaths = ["tests"]

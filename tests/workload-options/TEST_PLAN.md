@@ -20,4 +20,4 @@
 
 ## Maintenance
 
-When adding or renaming options in a `.workload` file, update [`cases.yaml`](cases.yaml) and re-run `./tests/workload-options/run-workload-option-tests.sh --mode dry`.
+When adding or renaming options in a `.workload` file, update [`cases.yaml`](cases.yaml) and re-run `./tests/workload-options/run-workload-option-tests --mode dry`.

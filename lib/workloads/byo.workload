@@ -81,6 +81,7 @@ function byo_process_options() {
 	case "$noptname1" in
 	    byofile*)		___byo_files+=("$optvalue")		 ;;
 	    byoname*)		___byo_name=$optvalue			 ;;
+	    byoworkload*)	___byo_workload=$optvalue; ___byo_name=$optvalue ;;
 	    byoworkdir*)	___byo_workdir=$optvalue		 ;;
 	    byodropcache)	___byo_drop_cache=$(bool "$optvalue")	 ;;
 	    *)			unknown_opts+=("$noptname ($noptname1)") ;;

@@ -16,7 +16,7 @@
 # limitations under the License.
 #
 # Rerun only autonomous-verify steps that often fail or were skipped (HammerDB VMs).
-# Full suite: examples/run-autonomous-verify.sh
+# Full suite: examples/run-autonomous-verify
 set -euo pipefail
 cd "$(dirname "$0")/.."
 LOG="${LOG:-/tmp/cb-verify-incomplete.log}"

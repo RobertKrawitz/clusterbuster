@@ -91,4 +91,18 @@ In addition, these special purpose workloads are available:
 All supported workloads are under the [lib/workloads](lib/workloads)
 directory.
 
+## Python package and shell-to-Python migration
+
+The repository includes a **`pyproject.toml`** so you can install ClusterBuster’s Python code in editable mode (reporting and future modules). The workload-options regression harness lives under [`tests/workload-options/`](tests/workload-options/) (Python package [`workload_options/`](tests/workload-options/workload_options/) inside that directory; test infrastructure, not part of the installed package):
+
+```bash
+pip install -e .
+```
+
+Declared dependencies include **PyYAML**, **kubernetes**, and **openshift** (dynamic client), matching the direction of moving off raw `oc`/`kubectl` subprocesses for API-driven control-plane work where practical. OpenShift-specific behavior (for example Prometheus under `openshift-monitoring`) is preserved, not removed, during migration.
+
+**Phase 1 (workload-options test harness):** The regression driver under [`tests/workload-options/`](tests/workload-options/) holds `cases.yaml`, reports, and the Python package [`workload_options/`](tests/workload-options/workload_options/). From the repo root you can run `PYTHONPATH=tests/workload-options python3 -m workload_options` or execute [`tests/workload-options/run-workload-option-tests`](tests/workload-options/run-workload-option-tests) (adds `tests/workload-options` to `PYTHONPATH`) with the same flags as before. See that directory’s README for details. Offline checks: `pip install -e .` (for reporting deps) and `pytest tests/test_workload_options.py` (pytest adds `lib/` and `tests/workload-options/` on the path via `pyproject.toml`).
+
+**Later phases (separate PRs):** Porting the main [`clusterbuster`](clusterbuster) bash driver, [`lib/libclusterbuster.sh`](lib/libclusterbuster.sh), workload plugins under [`lib/workloads/`](lib/workloads/), [`run-perf-ci-suite`](run-perf-ci-suite) (including folding in node image pull / `force-pull-clusterbuster-image`), and CI workloads under [`lib/CI/workloads/`](lib/CI/workloads/) is intentionally split across multiple pull requests. Work on the first phase lives on branches named with a **phase-1** (or similar) suffix so scope stays clear.
+
 Please peruse the [full documentation](docs/clusterbuster.md)
