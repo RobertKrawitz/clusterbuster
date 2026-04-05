@@ -4994,7 +4994,10 @@ function validate_volumes() {
     for volspec in "${volumes[@]}" ; do
 	local -a args
 	IFS=: read -ra args <<< "$volspec"
-	((${#args[@]} < 3)) && vol_errors+=("Volume name, type, and mountpoint must be specified for $volspec")
+	if ((${#args[@]} < 3)) ; then
+	    vol_errors+=("Volume name, type, and mountpoint must be specified for $volspec")
+	    continue
+	fi
 	local name="${args[0]}"
 	local type="${args[1],,}"
 	local mountpoint="${args[2]}"
@@ -5052,6 +5055,9 @@ function validate_volumes() {
     for volspec in "${volumes[@]}" ; do
 	local -a args
 	IFS=: read -ra args <<< "$volspec"
+	if ((${#args[@]} < 3)) ; then
+	    continue
+	fi
 	local mountpoint="${args[2]}"
 	if [[ -z "${used_volumes[$mountpoint]:-}" && $volspec = "${mount_volume_map[$mountpoint]}" ]] ; then
 	    used_volumes[$mountpoint]=1

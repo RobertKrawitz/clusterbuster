@@ -64,6 +64,6 @@ options:
   cleanup: 1
   deployment-type: replicaset
 
-  "volume:files,fio:!vm": "emptydir:/var/opt/clusterbuster"
+  "volume:files,fio:!vm": ":emptydir:/var/opt/clusterbuster"
   "volume:files:vm": "emptydisk:/var/opt/clusterbuster:size=auto:inodes=auto"
   "volume:fio:vm": "emptydisk:/var/opt/clusterbuster:size=auto"
