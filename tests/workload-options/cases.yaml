@@ -1,4 +1,4 @@
-# Workload option regression cases (see run-workload-option-tests.sh).
+# Workload option regression cases (see run-workload-option-tests).
 # Requires PyYAML (python3-pyyaml).
 # clusterbuster_args: list of argv tokens after the clusterbuster invocation.
 
