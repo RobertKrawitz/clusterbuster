@@ -7,6 +7,7 @@ This document describes the design for replacing the bash [`run-perf-ci-suite`](
 ## Goals
 
 - **CLI and library**: The same behavior is available as command-line entry points (see [Entry points](#entry-points-and-dual-clis)) and as a **`ClusterbusterCISuite`** class for larger Python test harnesses.
+- **Programmatic results**: The **`run`** / **`run_perf_ci_suite`** path returns a **structured result** (see [Programmatic run result](#programmatic-run-result)), not merely an exit code: suite **status** plus **data sufficient to generate a report** or to **inspect failures in depth** without treating on-disk JSON as the only contract.
 - **Full parity**: All six CI workloads today (`memory`, `fio`, `uperf`, `files`, `cpusoaker`, `hammerdb`) are implemented as Python plugins; behavioral parity with the current bash `.ci` + `run_clusterbuster_1` paths is the acceptance bar for **job execution**. **Orchestration** parity (Prometheus, global timeout, tee, venv, etc.) is tracked in [Remaining parity backlog](#remaining-parity-backlog).
 - **Shell fragments are not reused**: `.ci` files cannot be sourced from Python. Each workload’s matrix logic is reimplemented in Python (see *Why not wrap bash* below).
 - **Phase 3 boundary**: The main [`clusterbuster`](../clusterbuster) script remains bash for Phase 2. The Python CI layer invokes it through a **`ClusterbusterRunner`** abstraction (typically subprocess argv). Phase 3 can swap the runner for an in-process or API-native implementation without rewriting orchestration or workload plugins.
@@ -62,11 +63,20 @@ flowchart TB
 | **`ClusterbusterCISuiteConfig`** | Dataclass holding artifact dir, workload list, runtime classes, global timeouts, pin nodes, UUID, dry-run (`-n`), passthrough args, optional **`partial_results_hook`**, etc. |
 | **`ClusterbusterRunner`** | Default subprocess runner: invoke `clusterbuster` with a full argv (and cwd/env). Inject for dry-run or remote execution. |
 | **`ClusterbusterRunResult`** | Per-subprocess result (`returncode`, `stdout`, `stderr`); public for custom runners. |
-| **`run_perf_ci_suite(argv) -> int`** | Programmatic entry matching the **full** CLI (`run_perf.main`); exported from `clusterbuster.ci` (lazy). |
+| **`ClusterbusterCISuiteResult`** | Suite-level structured outcome after a full run: see [Programmatic run result](#programmatic-run-result). |
+| **`run_perf_ci_suite(argv)`** | Programmatic entry matching the **full** CLI (`run_perf.main`); **returns `ClusterbusterCISuiteResult`** once the API is wired; **`main()`** maps that result to a **process exit code**. Exported from `clusterbuster.ci` (lazy). |
 | **`load_yaml_profile` / `resolve_profile_path`** | Profile loading; exported from `clusterbuster.ci` (lazy) to avoid import cycles with `python -m clusterbuster.ci.profile_yaml`. |
 | **`WorkloadPlugin`** | Protocol per workload: **`initialize_options`**, **`process_option`**, **`run`** the test matrix. |
 
-**Optional follow-up:** A structured **`ClusterbusterCISuiteResult`** (jobs, failures, paths, timing) returned from **`run_perf_ci_suite`** would help pipelines that already parse JSON; today consumers rely on **`clusterbuster-ci-results.json`** + exit code.
+### Programmatic run result
+
+**`ClusterbusterCISuiteResult`** (name may evolve) is the **library contract** for “what happened” in addition to whatever is written under the artifact directory. It must carry:
+
+1. **Status** — Suite-level outcome aligned with **`clusterbuster-ci-results.json`** / bash `finis` semantics (e.g. pass, fail, incomplete, timed out), so callers can branch without parsing JSON files.
+2. **Report-grade data** — Identifiers and aggregates needed to **produce** the same kind of summary as the JSON report (or a richer view): e.g. UUID, artifact root, workload list, per-job rows with workload name, runtime class, success/failure, timing, and paths or handles to captured stdout/stderr where applicable.
+3. **Drill-down** — Enough detail to **debug or summarize** without re-running: per-job subprocess exit codes, links to per-job artifact dirs, optional error strings or counters, and compatibility with **`partial_results_hook`** / restart flows where relevant.
+
+On-disk **`clusterbuster-ci-results.json`** remains the **durable interchange** for external tools; the structured return is the **in-process** equivalent so embedders and tests do not depend only on reading that file back. Until implemented, **`run_perf_ci_suite`** may still return **`int`**; the plan treats the structured type as the **target** API.
 
 ## Package layout
 
@@ -135,6 +145,7 @@ Prioritized from peer review and comparison with [`scripts/run-perf-ci-suite.bas
 | **`.profile` backslash continuation** | Match bash: join continued lines before `process_option`. |
 | **`hard_fail_on_error`** | Parse from options; abort suite after first failing job when set (bash `finis` path). |
 | **Restart + UUID** | When `restart` and artifact dir present, recover `uuid` from existing report JSON (bash `jq` behavior). |
+| **`ClusterbusterCISuiteResult` + `run_perf_ci_suite` return** | Implement the structured type and return it from **`run_perf_ci_suite`** (and wire **`main()`** → exit code). Must satisfy [Programmatic run result](#programmatic-run-result): status + report-grade fields + drill-down detail. |
 
 ### P1 — orchestration side features
 
