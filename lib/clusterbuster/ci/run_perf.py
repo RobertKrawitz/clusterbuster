@@ -19,6 +19,7 @@ from typing import Sequence
 from clusterbuster.ci.ci_options import parse_ci_option, splitarg
 from clusterbuster.ci.compat.options import bool_str, parse_optvalues
 from clusterbuster.ci.config import ClusterbusterCISuiteConfig
+from clusterbuster.ci.help_text import build_full_help
 from clusterbuster.ci.profile_yaml import load_yaml_profile, resolve_profile_path
 from clusterbuster.ci.registry import default_registry
 from clusterbuster.ci.suite import ClusterbusterCISuite
@@ -311,18 +312,17 @@ def apply_process_option(state: CISuiteState, option: str) -> None:
 
 def print_help() -> None:
     root = repo_root()
-    reg = default_registry()
-    names = ", ".join(sorted(reg.keys()))
+    text = build_full_help(
+        root,
+        profile_dir=root / "lib" / "CI" / "profiles",
+        default_job_runtime=120,
+        job_delay=0,
+    )
     print(
-        f"""Usage: run-perf-ci-suite [options] [workloads]
-
-Python driver for the Clusterbuster CI suite. Workloads: {names}.
-
-General options match scripts/run-perf-ci-suite.sh; see that file or the
-docs for full flag descriptions. This CLI accepts long options as
---name=value (same as the bash implementation).
-
+        text
+        + """
 Environment: OC or KUBECTL must point to oc/kubectl if not on PATH.
+Long options may be written as --name=value.
 """,
         end="",
     )

@@ -3,7 +3,10 @@
 
 """Unit tests for clusterbuster.ci compat and scoped options."""
 
+from pathlib import Path
+
 from clusterbuster.ci.ci_options import parse_ci_option
+from clusterbuster.ci.help_text import build_full_help
 from clusterbuster.ci.compat.sizes import parse_size
 from clusterbuster.ci.helpers import compute_timeout
 
@@ -30,3 +33,12 @@ def test_parse_ci_option_fio_vm() -> None:
     opt = "volume:files,fio:vm=test-pvc:pvc:/var/opt/clusterbuster:size=auto:inodes=auto"
     p = parse_ci_option(opt, "fio", "vm")
     assert p is not None
+
+
+def test_run_perf_help_text_self_contained() -> None:
+    root = Path(__file__).resolve().parents[1]
+    text = build_full_help(root)
+    assert text.startswith("Usage: run-perf-ci-suite")
+    assert "General options:" in text
+    assert "Memory workload CI options:" in text
+    assert "ClusterBuster is a tool" in text or "Workload-specific options:" in text

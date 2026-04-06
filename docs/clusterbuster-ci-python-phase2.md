@@ -1,8 +1,8 @@
 # ClusterBuster Phase 2: Python CI suite
 
-This document describes the design for replacing the legacy bash CI driver ([`scripts/run-perf-ci-suite.sh`](#cli-naming)) and the sourced shell fragments under [`lib/CI/workloads/`](../lib/CI/workloads/) with a modular Python package under **`lib/clusterbuster/ci/`**, installable via the existing [`pyproject.toml`](../pyproject.toml). The **canonical command name** remains **`run-perf-ci-suite`** (repo root → Python); see [CLI naming](#cli-naming).
+This document describes the design for replacing the legacy shell CI driver and the sourced shell fragments under [`lib/CI/workloads/`](../lib/CI/workloads/) with a modular Python package under **`lib/clusterbuster/ci/`**, installable via the existing [`pyproject.toml`](../pyproject.toml). The **canonical command name** remains **`run-perf-ci-suite`** (repo root → Python); see [CLI naming](#cli-naming).
 
-**Document status:** The **core** Python port (suite, workloads, execution, profiles, `run_perf.py`) is **largely implemented**. Remaining work is **orchestration parity** with the legacy bash driver ([`scripts/run-perf-ci-suite.sh`](#cli-naming)), **tests**, **one** user-facing parity CLI ( **`run_perf.main` only**—no second main entry; **`python -m`** must **never** be required for documented use), and **packaging** (`[project.scripts]` + repo launcher). The [remaining backlog](#remaining-parity-backlog) is prioritized from bash parity, a second-pass adversarial review of the plan text, and maintainer decisions captured below.
+**Document status:** The **core** Python port (suite, workloads, execution, profiles, `run_perf.py`) is **largely implemented**. Remaining work is **orchestration parity** with the historical shell driver behavior, **tests**, **one** user-facing parity CLI ( **`run_perf.main` only**—no second main entry; **`python -m`** must **never** be required for documented use), and **packaging** (`[project.scripts]` + repo launcher). The [remaining backlog](#remaining-parity-backlog) is prioritized from bash parity, a second-pass adversarial review of the plan text, and maintainer decisions captured below.
 
 ## Goals
 
@@ -20,7 +20,7 @@ There is **one** supported user-facing CLI implementation: **`clusterbuster.ci.r
 ### CLI naming
 
 - **Canonical name:** The user-facing command is **`run-perf-ci-suite`** everywhere: the **repo-root** launcher ([`run-perf-ci-suite`](../run-perf-ci-suite)) and the **`[project.scripts]`** entry after **`pip install`** must use **this exact name** (not `clusterbuster-ci` or other aliases for Phase 2).
-- **Legacy bash (temporary filename):** While the Python driver holds the **`run-perf-ci-suite`** name at repo root, the old bash implementation lives as **[`scripts/run-perf-ci-suite.sh`](../scripts/run-perf-ci-suite.sh)** for parity diffs and manual runs against bash. Remove or retire **`run-perf-ci-suite.sh`** once the bash path is no longer needed.
+- **Legacy shell (temporary):** A copy of the old driver may remain under **`scripts/`** only until parity checks complete; **`run-perf-ci-suite --help`** is fully described by **`clusterbuster.ci.help_text`** and the **`clusterbuster`** driver—users do not read that script for options.
 
 | How users run it | Role |
 |------------------|------|
@@ -36,7 +36,7 @@ There is **one** supported user-facing CLI implementation: **`clusterbuster.ci.r
 ```mermaid
 flowchart LR
   subgraph today [Legacy reference]
-    R[scripts/run-perf-ci-suite.sh]
+    R[legacy shell driver (temporary)]
     L[libclusterbuster.sh]
     C[lib/CI/workloads/*.ci]
     B[./clusterbuster]
@@ -119,6 +119,7 @@ lib/clusterbuster/ci/
   __main__.py          # target: delegate to run_perf.main (same as repo script); avoid a second CLI
   cli.py               # legacy / to converge with run_perf or remove—not a second supported user CLI
   run_perf.py          # full orchestration + main(); CISuiteState, pin nodes, artifact dir, JSON
+  help_text.py         # full --help text (parity with former shell driver; no script pointers)
   config.py            # ClusterbusterCISuiteConfig
   suite.py             # ClusterbusterCISuite
   runner.py            # ClusterbusterRunner, ClusterbusterRunResult
@@ -168,7 +169,7 @@ The Python suite must eventually match or **deliberately document** gaps for:
 
 ## Remaining parity backlog
 
-Prioritized from peer review and comparison with the legacy bash driver ([`scripts/run-perf-ci-suite.sh`](../scripts/run-perf-ci-suite.sh)). Each item should either be **implemented** or marked as a **documented non-goal** with brief rationale (here or in release notes).
+Prioritized from peer review and comparison with the historical shell driver behavior (until that implementation is removed). Each item should either be **implemented** or marked as a **documented non-goal** with brief rationale (here or in release notes).
 
 ### P0 — correctness / contract
 
@@ -198,7 +199,7 @@ Prioritized from peer review and comparison with the legacy bash driver ([`scrip
 
 | Item | Notes |
 |------|--------|
-| **Tests: `parse_ci_option` matrix** | Expand toward bash embedded `test_parse` coverage in **`scripts/run-perf-ci-suite.sh`** (legacy bash). |
+| **Tests: `parse_ci_option` matrix** | Expand toward embedded `test_parse` coverage from the historical shell driver. |
 | **Tests: argv regression** | Same inputs → same `clusterbuster` argv (golden/snapshot tests for representative profiles + workloads). |
 | **YAML profile tests** | Broaden `tests/test_profile_yaml.py` toward full `lib/CI/profiles/*.yaml` coverage. |
 
@@ -219,8 +220,8 @@ Prioritized from peer review and comparison with the legacy bash driver ([`scrip
 ## Migration (current state)
 
 - **Repo root [`run-perf-ci-suite`](../run-perf-ci-suite)** is the **Python** parity CLI (see [User-facing CLI](#user-facing-cli)).
-- **Reference bash** implementation: [`scripts/run-perf-ci-suite.sh`](../scripts/run-perf-ci-suite.sh)—full legacy driver for diff and parity work.
-- Downstream consumers should switch to the Python **`run-perf-ci-suite`** and **stop** documenting **`python -m`** invocations for CI; the legacy bash script remains for comparison until parity backlog is cleared or explicitly deprecated.
+- **Reference:** any temporary shell copy under **`scripts/`** is for maintainer diff only until removed.
+- Downstream consumers should use the Python **`run-perf-ci-suite`** and **stop** documenting **`python -m`** invocations for CI.
 
 ## Why not wrap bash
 
