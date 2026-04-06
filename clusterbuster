@@ -2489,7 +2489,16 @@ function _retrieve_artifacts() {
 	    [[ ! -d "$artifactdir/VMLogs" ]] && mkdir "$artifactdir/VMLogs"
 	    while read -r namespace vm ; do
 		# virtctl scp assumes that any colons in the destination filename are remote.
-		____VIRTCTL scp -i "$vm_ssh_keyfile" -t "-oBatchMode=yes" -t "-oStrictHostKeyChecking=no" -t "-oGlobalKnownHostsFile=/dev/null" -t "-oUserKnownHostsFile=/dev/null" -t "-oLogLevel ERROR" "root@$vm.$namespace:/var/log/cloud-init-output.log" "$artifactdir/VMLogs/$namespace.$vm" </dev/null 1>&2 && mv "$artifactdir/VMLogs/$namespace.$vm" "$artifactdir/VMLogs/$namespace:$vm"
+		# Copy to a temp path under cb_tempdir (or /tmp) first: some kubectl/virtctl
+		# builds reject scp into paths under the artifact tree as "remote to remote".
+		local _vmlog_tmp
+		_vmlog_tmp=$(mktemp ${cb_tempdir:+-p "$cb_tempdir"} -t '_cb_vmlog.XXXXXXXXXX') || continue
+		if ____VIRTCTL scp -i "$vm_ssh_keyfile" -t "-oBatchMode=yes" -t "-oStrictHostKeyChecking=no" -t "-oGlobalKnownHostsFile=/dev/null" -t "-oUserKnownHostsFile=/dev/null" -t "-oLogLevel ERROR" "root@$vm.$namespace:/var/log/cloud-init-output.log" "$_vmlog_tmp" </dev/null 1>&2; then
+		    mv "$_vmlog_tmp" "$artifactdir/VMLogs/$namespace:$vm"
+		else
+		    rm -f "$_vmlog_tmp"
+		    timestamp "Warning: unable to retrieve cloud-init log for ${namespace}:${vm}" 1>&2
+		fi
 	    done <<< "$(__OC get vm -A -l "${basename}-id=$uuid" --no-headers | awk '{print $1, $2}')"
 	fi
     fi
