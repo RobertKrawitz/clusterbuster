@@ -20,7 +20,7 @@ There is **one** supported user-facing CLI implementation: **`clusterbuster.ci.r
 ### CLI naming
 
 - **Canonical name:** The user-facing command is **`run-perf-ci-suite`** everywhere: the **repo-root** launcher ([`run-perf-ci-suite`](../run-perf-ci-suite)) and the **`[project.scripts]`** entry after **`pip install`** must use **this exact name** (not `clusterbuster-ci` or other aliases for Phase 2).
-- **Legacy bash (temporary filename):** While the Python driver holds the **`run-perf-ci-suite`** name at repo root, the old bash implementation may **temporarily** live as **`scripts/run-perf-ci-suite.sh`** (rename from today’s [`run-perf-ci-suite.bash`](../scripts/run-perf-ci-suite.bash)) so parity diffs and manual runs against bash remain obvious. Remove or retire **`run-perf-ci-suite.sh`** once the bash path is no longer needed.
+- **Legacy bash (temporary filename):** While the Python driver holds the **`run-perf-ci-suite`** name at repo root, the old bash implementation lives as **[`scripts/run-perf-ci-suite.sh`](../scripts/run-perf-ci-suite.sh)** for parity diffs and manual runs against bash. Remove or retire **`run-perf-ci-suite.sh`** once the bash path is no longer needed.
 
 | How users run it | Role |
 |------------------|------|
@@ -168,7 +168,7 @@ The Python suite must eventually match or **deliberately document** gaps for:
 
 ## Remaining parity backlog
 
-Prioritized from peer review and comparison with the legacy bash driver ([`scripts/run-perf-ci-suite.sh`](#cli-naming); today often still [`run-perf-ci-suite.bash`](../scripts/run-perf-ci-suite.bash)). Each item should either be **implemented** or marked as a **documented non-goal** with brief rationale (here or in release notes).
+Prioritized from peer review and comparison with the legacy bash driver ([`scripts/run-perf-ci-suite.sh`](../scripts/run-perf-ci-suite.sh)). Each item should either be **implemented** or marked as a **documented non-goal** with brief rationale (here or in release notes).
 
 ### P0 — correctness / contract
 
@@ -219,7 +219,7 @@ Prioritized from peer review and comparison with the legacy bash driver ([`scrip
 ## Migration (current state)
 
 - **Repo root [`run-perf-ci-suite`](../run-perf-ci-suite)** is the **Python** parity CLI (see [User-facing CLI](#user-facing-cli)).
-- **Reference bash** implementation: **`scripts/run-perf-ci-suite.sh`** after rename ([`run-perf-ci-suite.bash`](../scripts/run-perf-ci-suite.bash) until then)—full legacy driver for diff and parity work.
+- **Reference bash** implementation: [`scripts/run-perf-ci-suite.sh`](../scripts/run-perf-ci-suite.sh)—full legacy driver for diff and parity work.
 - Downstream consumers should switch to the Python **`run-perf-ci-suite`** and **stop** documenting **`python -m`** invocations for CI; the legacy bash script remains for comparison until parity backlog is cleared or explicitly deprecated.
 
 ## Why not wrap bash

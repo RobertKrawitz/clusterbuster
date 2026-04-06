@@ -318,7 +318,7 @@ def print_help() -> None:
 
 Python driver for the Clusterbuster CI suite. Workloads: {names}.
 
-General options match scripts/run-perf-ci-suite.bash; see that file or the
+General options match scripts/run-perf-ci-suite.sh; see that file or the
 docs for full flag descriptions. This CLI accepts long options as
 --name=value (same as the bash implementation).
 
