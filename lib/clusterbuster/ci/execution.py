@@ -189,9 +189,18 @@ def run_clusterbuster_job(
         return status, hms
 
     if status == 0 and jobdir and tmp_jobdir:
-        if jobdir.exists():
-            raise RuntimeError(f"{jobdir} exists (shouldn't!)")
-        tmp_jobdir.rename(jobdir)
+        # Bash always passes ``--artifactdir=$tmp_jobdir`` (``…/jobname.tmp``) and
+        # renames to ``jobdir`` on success. Some clusterbuster builds also rename
+        # ``.tmp`` → final internally, leaving ``jobdir`` present before we run.
+        if tmp_jobdir.exists():
+            if jobdir.exists():
+                shutil.rmtree(jobdir)
+            tmp_jobdir.rename(jobdir)
+        elif not jobdir.exists():
+            raise RuntimeError(
+                f"success but no artifacts at {tmp_jobdir} or {jobdir}"
+            )
+        # else: only ``jobdir`` exists — driver already finalized; nothing to rename.
     elif status != 0 and jobdir and tmp_jobdir and tmp_jobdir.exists():
         base = Path(f"{jobdir}.FAIL")
         fail_jobdir = base
