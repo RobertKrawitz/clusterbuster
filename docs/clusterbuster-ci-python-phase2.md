@@ -2,19 +2,32 @@
 
 This document describes the design for replacing the bash [`run-perf-ci-suite`](../run-perf-ci-suite) driver and the sourced shell fragments under [`lib/CI/workloads/`](../lib/CI/workloads/) with a modular Python package under **`lib/clusterbuster/ci/`**, installable via the existing [`pyproject.toml`](../pyproject.toml).
 
+**Document status:** The **core** Python port (suite, workloads, execution, profiles, `run_perf.py`) is **largely implemented**. Remaining work is **orchestration parity** with [`scripts/run-perf-ci-suite.bash`](../scripts/run-perf-ci-suite.bash), **tests**, **packaging entry points**, and **documentation** of dual CLIs. The [remaining backlog](#remaining-parity-backlog) is prioritized from bash parity and internal peer review.
+
 ## Goals
 
-- **CLI and library**: The same behavior is available as a command-line entry point (`python -m clusterbuster.ci`) and as a **`ClusterbusterCISuite`** class for larger Python test harnesses.
-- **Full parity**: All six CI workloads today (`memory`, `fio`, `uperf`, `files`, `cpusoaker`, `hammerdb`) are implemented as Python plugins; behavioral parity with the current bash `.ci` + `run_clusterbuster_1` paths is the acceptance bar.
+- **CLI and library**: The same behavior is available as command-line entry points (see [Entry points](#entry-points-and-dual-clis)) and as a **`ClusterbusterCISuite`** class for larger Python test harnesses.
+- **Full parity**: All six CI workloads today (`memory`, `fio`, `uperf`, `files`, `cpusoaker`, `hammerdb`) are implemented as Python plugins; behavioral parity with the current bash `.ci` + `run_clusterbuster_1` paths is the acceptance bar for **job execution**. **Orchestration** parity (Prometheus, global timeout, tee, venv, etc.) is tracked in [Remaining parity backlog](#remaining-parity-backlog).
 - **Shell fragments are not reused**: `.ci` files cannot be sourced from Python. Each workload’s matrix logic is reimplemented in Python (see *Why not wrap bash* below).
 - **Phase 3 boundary**: The main [`clusterbuster`](../clusterbuster) script remains bash for Phase 2. The Python CI layer invokes it through a **`ClusterbusterRunner`** abstraction (typically subprocess argv). Phase 3 can swap the runner for an in-process or API-native implementation without rewriting orchestration or workload plugins.
+
+## Entry points and dual CLIs
+
+| Entry | Role |
+|-------|------|
+| **Repo root [`run-perf-ci-suite`](../run-perf-ci-suite)** | Thin Python launcher → **`clusterbuster.ci.run_perf.main`**. Intended **bash-compatible** surface (long options, profiles, workloads). |
+| **`python -m clusterbuster.ci.run_perf`** | Same implementation as root script (after `PYTHONPATH=lib` or install). |
+| **`python -m clusterbuster.ci`** | **Simplified** argparse CLI (`cli.main`) for quick runs; **not** full parity with bash option surface. |
+| **`python -m clusterbuster.ci.profile_yaml`** | Expands YAML profiles to `key=value` lines. |
+
+User-facing docs should steer full CI suite users to **`run_perf`** / root script; steer minimal experiments to **`python -m clusterbuster.ci`**.
 
 ## Current vs target architecture
 
 ```mermaid
 flowchart LR
-  subgraph today [Today]
-    R[run-perf-ci-suite]
+  subgraph today [Legacy reference]
+    R[scripts/run-perf-ci-suite.bash]
     L[libclusterbuster.sh]
     C[lib/CI/workloads/*.ci]
     B[./clusterbuster]
@@ -27,11 +40,13 @@ flowchart LR
 ```mermaid
 flowchart TB
   subgraph phase2 [Phase 2 Python]
-    CLI[python -m clusterbuster.ci]
+    RP[run_perf.main / run-perf-ci-suite]
+    CLI[python -m clusterbuster.ci → cli.main]
     S[ClusterbusterCISuite]
     R[ClusterbusterRunner]
     P[Workload plugins]
     B2[./clusterbuster subprocess]
+    RP --> S
     CLI --> S
     S --> P
     S --> R
@@ -44,32 +59,36 @@ flowchart TB
 | Symbol | Role |
 |--------|------|
 | **`ClusterbusterCISuite`** | Orchestrates one full CI run: profiles/options, runtime classes, per-workload plugins, job execution, artifacts. |
-| **`ClusterbusterCISuiteConfig`** | Dataclass (or equivalent) holding artifact dir, workload list, runtime classes, global timeouts, pin nodes, UUID, dry-run (`-n`), passthrough args, etc. |
-| **`ClusterbusterRunner`** | Protocol: invoke `clusterbuster` with a full argv (and cwd/env). Default: **`SubprocessClusterbusterRunner`**. |
-| **`WorkloadPlugin`** | Protocol per workload: initialize state, parse workload-scoped CI options, run the test matrix for the given execution context. |
+| **`ClusterbusterCISuiteConfig`** | Dataclass holding artifact dir, workload list, runtime classes, global timeouts, pin nodes, UUID, dry-run (`-n`), passthrough args, optional **`partial_results_hook`**, etc. |
+| **`ClusterbusterRunner`** | Default subprocess runner: invoke `clusterbuster` with a full argv (and cwd/env). Inject for dry-run or remote execution. |
+| **`ClusterbusterRunResult`** | Per-subprocess result (`returncode`, `stdout`, `stderr`); public for custom runners. |
+| **`run_perf_ci_suite(argv) -> int`** | Programmatic entry matching the **full** CLI (`run_perf.main`); exported from `clusterbuster.ci` (lazy). |
+| **`load_yaml_profile` / `resolve_profile_path`** | Profile loading; exported from `clusterbuster.ci` (lazy) to avoid import cycles with `python -m clusterbuster.ci.profile_yaml`. |
+| **`WorkloadPlugin`** | Protocol per workload: **`initialize_options`**, **`process_option`**, **`run`** the test matrix. |
+
+**Optional follow-up:** A structured **`ClusterbusterCISuiteResult`** (jobs, failures, paths, timing) returned from **`run_perf_ci_suite`** would help pipelines that already parse JSON; today consumers rely on **`clusterbuster-ci-results.json`** + exit code.
 
 ## Package layout
 
 ```
 lib/clusterbuster/ci/
-  __init__.py          # exports ClusterbusterCISuite, config, runner, registry
-  __main__.py          # CLI entry
+  __init__.py          # exports suite, config, runner, run_perf_ci_suite (lazy), profile helpers (lazy)
+  __main__.py          # delegates to cli.main
+  cli.py               # simplified CLI (not full bash parity)
+  run_perf.py          # full orchestration + main(); CISuiteState, pin nodes, artifact dir, JSON
   config.py            # ClusterbusterCISuiteConfig
   suite.py             # ClusterbusterCISuite
-  runner.py            # ClusterbusterRunner, SubprocessClusterbusterRunner
+  runner.py            # ClusterbusterRunner, ClusterbusterRunResult
+  profile_yaml.py      # YAML profiles; python -m clusterbuster.ci.profile_yaml
   ci_options.py        # parse_ci_option / workload:runtime scoping (bash parity)
   registry.py          # workload name → plugin
-  execution.py         # per-run context: run_one job (bash run_clusterbuster_1)
+  execution.py         # run_clusterbuster_job, argv build, known-option scrape
+  helpers.py           # compute_timeout, get_node_memory_bytes, …
   compat/
-    sizes.py           # parse_size (from libclusterbuster.sh)
-    options.py         # parse_option, parse_optvalues, bool helpers
+    sizes.py
+    options.py
   workloads/
-    memory.py
-    fio.py
-    uperf.py
-    files.py
-    cpusoaker.py
-    hammerdb.py
+    memory.py … hammerdb.py
 ```
 
 **Phase 3 note**: `compat/*` and `ci_options.py` are candidates to merge into a future `clusterbuster.core` once the main driver is Python.
@@ -96,25 +115,66 @@ lib/clusterbuster/ci/
 
 ## Orchestrator responsibilities (from `run-perf-ci-suite`)
 
-The Python suite must eventually match or deliberately document gaps for:
+The Python suite must eventually match or **deliberately document** gaps for:
 
-- CLI: long options (`--key=value`), repeated `-n` for dry run, workload list positional args.
-- Profile files: [`lib/CI/profiles/*.yaml`](../lib/CI/profiles/) — YAML (`options:` mapping; repeated keys as lists), expanded to `key=value` lines for `process_option` via `python -m clusterbuster.ci.profile_yaml`. Legacy `.profile` line files are still accepted if present.
-- Runtime class discovery and filtering (`check_runtimeclass`, aarch64 + VM policy via `CB_ALLOW_VM_AARCH64`).
-- Job execution: artifact dirs, tmp `.tmp` rename, failure suffix, counters, job timing, optional restart mode.
-- Side features: `force-pull-clusterbuster-image`, Prometheus snapshot hooks, venv for `analyze-clusterbuster-report`, global timeout, signal handling.
+- CLI: long options (`--key=value`), repeated `-n` for dry run, workload list positional args (**done** in `run_perf.parse_argv`).
+- Profile files: [`lib/CI/profiles/*.yaml`](../lib/CI/profiles/) — YAML expanded via **`python -m clusterbuster.ci.profile_yaml`** (**done**). Legacy **`.profile`** line files: comments stripped; **backslash continuation** must match bash (read next physical line and concatenate) — **partial** (see backlog).
+- Runtime class discovery and filtering (`check_runtimeclass`, aarch64 + VM policy via `CB_ALLOW_VM_AARCH64`) — **done** in `run_perf.filter_runtimeclasses`.
+- Job execution: artifact dirs, tmp `.tmp` rename, failure suffix, counters, job timing — **done** in `execution` + `suite`. **Restart UUID recovery** from prior artifact dir — **missing** (see backlog).
+- Side features: see [Remaining parity backlog](#remaining-parity-backlog).
 
-Initial implementation may land core orchestration + job running first; side features can follow in the same Phase 2 branch with explicit “parity” checklists.
+## Remaining parity backlog
+
+Prioritized from peer review and comparison with [`scripts/run-perf-ci-suite.bash`](../scripts/run-perf-ci-suite.bash). Each item should either be **implemented** or marked as a **documented non-goal** with brief rationale (here or in release notes).
+
+### P0 — correctness / contract
+
+| Item | Notes |
+|------|--------|
+| **`clusterbuster-ci-results.json` `result` values** | Align with bash `finis`: `PASS`, `FAIL`, `INCOMPLETE`, `TIMEDOUT` (and intermediate `PASSING`/`FAILING` if downstream relies on them). |
+| **`.profile` backslash continuation** | Match bash: join continued lines before `process_option`. |
+| **`hard_fail_on_error`** | Parse from options; abort suite after first failing job when set (bash `finis` path). |
+| **Restart + UUID** | When `restart` and artifact dir present, recover `uuid` from existing report JSON (bash `jq` behavior). |
+
+### P1 — orchestration side features
+
+| Item | Notes |
+|------|--------|
+| **Tee** `stdout`/`stderr` to `artifactdir/stdout.perf-ci-suite.log` and `stderr.perf-ci-suite.log` | Bash `exec > >(tee -a …)`. |
+| **Global `run_timeout` + monitor** | Background timer; signal parent on expiry (bash `monitor` + `USR1`). |
+| **Signal handling** | TERM/INT/HUP/EXIT cleanup analogous to bash `trap` + `finis`. |
+| **Prometheus snapshot** | `take_prometheus_snapshot`: start + retrieve in finish path (bash `start_prometheus_snapshot` / `retrieve_prometheus_snapshot`). |
+| **`force_pull_clusterbuster-image`** | Invoke `lib/force-pull-clusterbuster-image` when option set. |
+| **Python venv + analyze** | `use_python_venv`: create temp venv, install deps; on success run **`analyze-clusterbuster-report`** when `analyze_results` / `analysis_format` set (bash `finis`). |
+
+### P2 — tests, packaging, docs
+
+| Item | Notes |
+|------|--------|
+| **`[project.scripts]` in `pyproject.toml`** | e.g. `clusterbuster-ci = "clusterbuster.ci.run_perf:main"` (name TBD to avoid clashing with repo-root script in dev). **Or** document that only `python -m` / repo script are supported. |
+| **Tests: `parse_ci_option` matrix** | Expand toward bash embedded `test_parse` coverage in `run-perf-ci-suite.bash`. |
+| **Tests: argv regression** | Same inputs → same `clusterbuster` argv (golden/snapshot tests for representative profiles + workloads). |
+| **YAML profile tests** | Broaden `tests/test_profile_yaml.py` toward full `lib/CI/profiles/*.yaml` coverage. |
+
+### Intentionally lower priority / noop
+
+| Item | Notes |
+|------|--------|
+| **GETOPT `-B`** | Bash includes `B` in `getopts` string but has **no** `B)` branch — **noop**; Python rejecting unknown short flags is acceptable. |
+| **`prerun` / `postrun`** | Variables exist in bash driver but are **not** populated from documented CLI in the same way; treat as **out of scope** for Phase 2 unless product asks for hooks. |
 
 ## Testing strategy
 
-- **Unit**: `parse_size`, `parse_ci_option` (including bash `test_parse` cases from `run-perf-ci-suite`).
-- **Component**: constructed argv for fixed config + profile snippets per workload.
-- **Integration**: `./clusterbuster -n` with composed argv where possible; full live runs per project remote rules.
+- **Unit**: `parse_size`, `parse_ci_option` — expand toward bash **`test_parse`** completeness (`tests/test_ci_parity.py`).
+- **Component**: constructed argv for fixed config + profile snippets per workload; **argv snapshot / golden** tests for regression vs bash driver (see backlog).
+- **YAML**: golden tests for profile expansion (`tests/test_profile_yaml.py` — broaden coverage).
+- **Integration**: `./clusterbuster -n` / `run-perf-ci-suite -n` per project remote rules; full live runs where applicable.
 
-## Migration
+## Migration (current state)
 
-- Keep the existing bash **`run-perf-ci-suite`** as a thin wrapper that delegates to `python -m clusterbuster.ci` until all consumers switch; then remove or reduce to a deprecation stub.
+- **Repo root [`run-perf-ci-suite`](../run-perf-ci-suite)** is the **Python** entry (see [Entry points](#entry-points-and-dual-clis)).
+- **Reference bash** implementation: [`scripts/run-perf-ci-suite.bash`](../scripts/run-perf-ci-suite.bash) (full legacy driver for diff and parity work).
+- Downstream consumers should switch to the Python driver; the bash file remains for comparison until parity backlog is cleared or explicitly deprecated.
 
 ## Why not wrap bash
 
