@@ -96,5 +96,5 @@ class CpusoakerWorkload:
                 if st != 0:
                     return
                 n_runs += 1
-                if getattr(suite.config, "debugonly", False) and n_runs > 10:
+                if suite.config.dontdoit and n_runs > 10:
                     break

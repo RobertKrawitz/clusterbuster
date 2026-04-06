@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
 # Copyright 2026 Robert Krawitz/Red Hat
 # SPDX-License-Identifier: Apache-2.0
-"""Thin entry for the Clusterbuster CI suite; implementation is in ``lib.clusterbuster.ci.run_perf``.
+#
+# AI-assisted tooling (Cursor Agent).
+"""Clusterbuster CI perf suite launcher.
 
-AI-assisted tooling (Cursor Agent).
+Imports ``lib.clusterbuster`` the same way as ``clusterbuster-report``: optional
+``CB_LIBPATH`` (colon-separated) is prepended to ``sys.path`` **before** the
+``from lib.clusterbuster…`` import so extra library roots take effect.
+
+Logging: :func:`clusterbuster.ci.run_perf.main` configures the ``clusterbuster.ci``
+logger tree so routine messages go to **stdout** and warnings/errors to **stderr**
+(see :mod:`clusterbuster.ci.logging_config`).
 """
 
 from __future__ import annotations
@@ -11,9 +19,6 @@ from __future__ import annotations
 import os
 import sys
 
-# Same mechanism as clusterbuster-report / analyze-clusterbuster-report: optional
-# CB_LIBPATH (colon-separated) is prepended to sys.path. The script directory is
-# already on sys.path, so ``from lib.clusterbuster...`` resolves without PYTHONPATH=lib.
 if "CB_LIBPATH" in os.environ:
     sys.path = [element for element in os.environ["CB_LIBPATH"].split(":")] + sys.path
 

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import shutil
@@ -20,9 +21,14 @@ from clusterbuster.ci.ci_options import parse_ci_option, splitarg
 from clusterbuster.ci.compat.options import bool_str, parse_optvalues
 from clusterbuster.ci.config import ClusterbusterCISuiteConfig
 from clusterbuster.ci.help_text import build_full_help
+from clusterbuster.ci.logging_config import configure_clusterbuster_ci_logging
 from clusterbuster.ci.profile_yaml import load_yaml_profile, resolve_profile_path
 from clusterbuster.ci.registry import default_registry
 from clusterbuster.ci.suite import ClusterbusterCISuite
+
+# Fixed name so logging works whether the package is imported as ``clusterbuster.ci``
+# (``PYTHONPATH=lib``) or ``lib.clusterbuster.ci`` (repo-root script).
+_LOG = logging.getLogger("clusterbuster.ci.run_perf")
 
 
 def repo_root() -> Path:
@@ -176,10 +182,9 @@ def filter_runtimeclasses(state: CISuiteState, oc: str) -> None:
             prev_rc = list(state.runtimeclasses)
             state.runtimeclasses = [r for r in state.runtimeclasses if r != "vm"]
             if len(state.runtimeclasses) < len(prev_rc):
-                print(
+                _LOG.warning(
                     "run-perf-ci-suite: skipping runtimeclass vm on aarch64 cluster "
                     "(set CB_ALLOW_VM_AARCH64=1 to force)",
-                    file=sys.stderr,
                 )
 
 
@@ -233,13 +238,22 @@ def process_profile(state: CISuiteState, profile_arg: str, profile_dir: Path) ->
         apply_profile_lines(state, load_yaml_profile(path))
     else:
         text = path.read_text(encoding="utf-8")
-        for raw in text.splitlines():
-            line = raw.split("#", 1)[0].strip()
-            if not line:
+        raw_lines = text.splitlines()
+        i = 0
+        while i < len(raw_lines):
+            raw = raw_lines[i]
+            line = raw.split("#", 1)[0]
+            if not line.strip():
+                i += 1
                 continue
-            while line.endswith("\\"):
-                line = line[:-1].rstrip()
-            apply_process_option(state, line)
+            while line.rstrip().endswith("\\") and i + 1 < len(raw_lines):
+                cont = raw_lines[i + 1].split("#", 1)[0]
+                line = line.rstrip()[:-1] + cont.lstrip()
+                i += 1
+            line = line.strip()
+            if line:
+                apply_process_option(state, line)
+            i += 1
 
 
 def apply_process_option(state: CISuiteState, option: str) -> None:
@@ -306,6 +320,8 @@ def apply_process_option(state: CISuiteState, option: str) -> None:
         state.compress_report = "-z" if _ci_bool(optvalue) else ""
     elif n1.startswith("workloads"):
         state.workloads = parse_optvalues(optvalue)
+    elif n1.startswith("hardfail") or n1.startswith("hard_fail"):
+        state.hard_fail_on_error = _ci_bool(optvalue)
     else:
         state.extra_args.append(option)
 
@@ -323,6 +339,7 @@ def print_help() -> None:
         + """
 Environment: OC or KUBECTL must point to oc/kubectl if not on PATH.
 Long options may be written as --name=value.
+Use ``run-perf-ci-suite profile-yaml PATH.yaml`` to print option lines from a YAML profile.
 """,
         end="",
     )
@@ -345,7 +362,7 @@ def parse_argv(argv: Sequence[str], state: CISuiteState) -> list[str]:
         elif a.startswith("-") and "=" in a:
             apply_process_option(state, a[1:])
         elif a.startswith("-"):
-            print(f"Unknown short option {a!r}", file=sys.stderr)
+            _LOG.warning("Unknown short option %r", a)
             raise SystemExit(2)
         else:
             workloads.append(a)
@@ -363,24 +380,15 @@ def write_ci_results_json(
     start_ts: int,
     end_ts: int,
 ) -> None:
-    def q_lines(xs: list[str]) -> str:
-        if not xs:
-            return ""
-        return ",\n".join(f'    "{j}"' for j in xs)
-
-    body = f"""{{
-  "result": "{status}",
-  "job_start": "{datetime.fromtimestamp(start_ts, tz=timezone.utc).strftime('%Y-%m-%dT%H:%M:%S+00:00')}",
-  "job_end": "{datetime.fromtimestamp(end_ts, tz=timezone.utc).strftime('%Y-%m-%dT%H:%M:%S+00:00')}",
-  "job_runtime": {end_ts - start_ts},
-  "ran": [
-{q_lines(jobs)}
-  ],
-  "failed": [
-{q_lines(failures)}
-  ]
-}}
-"""
+    payload = {
+        "result": status,
+        "job_start": datetime.fromtimestamp(start_ts, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00"),
+        "job_end": datetime.fromtimestamp(end_ts, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00"),
+        "job_runtime": end_ts - start_ts,
+        "ran": jobs,
+        "failed": failures,
+    }
+    body = json.dumps(payload, indent=2) + "\n"
     tmp = artifactdir / "clusterbuster-ci-results.json.tmp"
     out = artifactdir / "clusterbuster-ci-results.json"
     tmp.write_text(body, encoding="utf-8")
@@ -401,14 +409,14 @@ def run_suite_with_orchestration(state: CISuiteState, workload_args: list[str]) 
     dry = state.debugonly > 0 or state.dry_run_from_profile
     oc = find_oc()
     if not oc and not dry:
-        print("Cannot find oc or kubectl", file=sys.stderr)
+        _LOG.warning("Cannot find oc or kubectl")
         return 1
     os.environ.setdefault("OC", oc)
 
     wl = workload_args if workload_args else list(default_registry().keys())
     for w in wl:
         if w not in default_registry():
-            print(f"Unsupported workload {w}", file=sys.stderr)
+            _LOG.warning("Unsupported workload %s", w)
             return 1
 
     if not state.uuid:
@@ -452,6 +460,8 @@ def run_suite_with_orchestration(state: CISuiteState, workload_args: list[str]) 
         debug_args=debug_args,
         force_cleanup_timeout=state.force_cleanup_timeout or "",
         restart=state.restart,
+        hard_fail_on_error=state.hard_fail_on_error,
+        log=_LOG,
     )
 
     def _partial(suite: ClusterbusterCISuite) -> None:
@@ -485,21 +495,30 @@ def run_suite_with_orchestration(state: CISuiteState, workload_args: list[str]) 
             start_ts=starting_ts,
             end_ts=end_ts,
         )
-        print(f"Run took {to_hms(starting_ts, end_ts)} ({'Passed' if rc == 0 and not suite.failures else 'Failed'})")
-        print(f"EXIT={rc}")
+        _LOG.info(
+            "Run took %s (%s)",
+            to_hms(starting_ts, end_ts),
+            "Passed" if rc == 0 and not suite.failures else "Failed",
+        )
+        _LOG.info("EXIT=%s", rc)
 
     return rc
 
 
 def main(argv: list[str] | None = None) -> int:
+    configure_clusterbuster_ci_logging()
     argv = list(argv if argv is not None else sys.argv[1:])
+    if argv and argv[0] == "profile-yaml":
+        from clusterbuster.ci.profile_yaml import main as profile_yaml_main
+
+        return profile_yaml_main(argv[1:])
     state = CISuiteState()
     try:
         wl = parse_argv(argv, state)
     except SystemExit as e:
         return int(e.code) if isinstance(e.code, int) else 1
     if state.analyze_results and not state.artifactdir_template:
-        print("--analyze-results may only be used with --artifactdir set", file=sys.stderr)
+        _LOG.warning("--analyze-results may only be used with --artifactdir set")
         return 1
     return run_suite_with_orchestration(state, wl)
 

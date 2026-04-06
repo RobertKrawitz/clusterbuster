@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
@@ -41,8 +42,11 @@ class ClusterbusterCISuiteConfig:
     debug_args: str = ""
     force_cleanup_timeout: str = ""
     restart: bool = False
+    hard_fail_on_error: bool = False
     # If set, called after each job completes (bash ``report_ci_results`` parity).
     partial_results_hook: Callable[[Any], None] | None = None
+    # Optional logger for suite/job messages (default: ``clusterbuster.ci`` tree).
+    log: logging.Logger | None = None
 
     def normalized_workloads(self) -> tuple[str, ...]:
         return tuple(w.strip().lower() for w in self.workloads if w.strip())

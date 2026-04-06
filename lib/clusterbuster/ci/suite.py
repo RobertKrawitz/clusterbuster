@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 from typing import Sequence
@@ -39,6 +40,7 @@ class ClusterbusterCISuite:
         registry: dict[str, WorkloadPlugin] | None = None,
     ) -> None:
         self.config = config
+        self._log = config.log or logging.getLogger("clusterbuster.ci.suite")
         top = Path(__file__).resolve().parents[3]
         self._cb_exe = Path(clusterbuster_exe) if clusterbuster_exe else top / "clusterbuster"
         self.runner = runner or ClusterbusterRunner(self._cb_exe)
@@ -48,6 +50,7 @@ class ClusterbusterCISuite:
         self.failures: list[str] = []
         self.job_runtimes: dict[str, str] = {}
         self._global_job_counter = 0
+        self._hard_fail_abort = False
 
     def process_workload_options(self, workload: str, runtimeclass: str) -> list[str]:
         plugin = self._registry.get(workload)
@@ -80,6 +83,8 @@ class ClusterbusterCISuite:
         extra_clusterbuster_args: Sequence[str] | None = None,
         increment_global_counter: bool = False,
     ) -> int:
+        if self._hard_fail_abort:
+            return 1
         merged = list(extra_clusterbuster_args or []) + list(self.config.extra_clusterbuster_args)
         counter = self._global_job_counter
         from clusterbuster.ci.ci_options import split_quoted_args
@@ -115,6 +120,8 @@ class ClusterbusterCISuite:
             self.jobs.append(full_jobname)
         elif params.error_is_failure:
             self.failures.append(full_jobname)
+            if self.config.hard_fail_on_error:
+                self._hard_fail_abort = True
         if increment_global_counter:
             self._global_job_counter += 1
         if self.config.partial_results_hook is not None:
@@ -127,7 +134,7 @@ class ClusterbusterCISuite:
             self._global_job_counter = 0
             plugin = self._registry.get(wl)
             if plugin is None:
-                print(f"Unsupported workload {wl}", flush=True)
+                self._log.warning("Unsupported workload %s", wl)
                 return 1
             plugin.run(self, default_rt)
         return 1 if self.failures else 0

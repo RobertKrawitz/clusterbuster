@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import shutil
 import subprocess
@@ -13,6 +14,8 @@ from pathlib import Path
 from typing import Callable, Sequence
 
 from clusterbuster.ci.runner import ClusterbusterRunner
+
+_LOG = logging.getLogger("clusterbuster.ci.execution")
 
 
 @dataclass
@@ -149,8 +152,8 @@ def run_clusterbuster_job(
 
     time.sleep(job_delay)
     t0 = int(time.time())
-    print()
-    print(f"*** Running {full_jobname} at (epoch {t0})")
+    _LOG.info("")
+    _LOG.info("*** Running %s at (epoch %s)", full_jobname, t0)
 
     argv = build_clusterbuster_argv(
         dontdoit=dontdoit,
@@ -175,11 +178,12 @@ def run_clusterbuster_job(
     )
     res = runner.run(argv, cwd=cwd)
     out = (res.stdout or "") + (res.stderr or "")
-    print(out, end="")
+    if out:
+        _LOG.info("%s", out.rstrip("\n"))
     status = res.returncode
     t1 = int(time.time())
     hms = _to_hms(t0, t1)
-    print(f"Job took {hms}, done at (epoch {t1})")
+    _LOG.info("Job took %s, done at (epoch %s)", hms, t1)
 
     if debugonly:
         return status, hms

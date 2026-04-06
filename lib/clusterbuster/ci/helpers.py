@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import ast
 import os
+import operator
 import subprocess
 
 
@@ -16,10 +18,44 @@ def compute_timeout(timeout: int, job_timeout: int) -> int:
     return timeout
 
 
+def _eval_arith_node(node: ast.AST) -> float:
+    """Evaluate a restricted arithmetic AST (no calls, names, or attributes)."""
+    if isinstance(node, ast.Constant):
+        if isinstance(node.value, (int, float)):
+            return float(node.value)
+        raise ValueError("invalid constant in expression")
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+        v = _eval_arith_node(node.operand)
+        return +v if isinstance(node.op, ast.UAdd) else -v
+    if isinstance(node, ast.BinOp):
+        left = _eval_arith_node(node.left)
+        right = _eval_arith_node(node.right)
+        op = node.op
+        if isinstance(op, ast.Add):
+            return left + right
+        if isinstance(op, ast.Sub):
+            return left - right
+        if isinstance(op, ast.Mult):
+            return left * right
+        if isinstance(op, ast.Div):
+            return left / right
+        if isinstance(op, ast.FloorDiv):
+            return operator.floordiv(left, right)
+        if isinstance(op, ast.Mod):
+            return left % right
+    raise ValueError("unsupported arithmetic construct")
+
+
 def computeit(expr: str) -> int:
-    """Integer result of a simple arithmetic expression (bash ``bc`` subset)."""
-    # Expressions are built from trusted integers/floats in workload code.
-    return int(float(eval(expr, {"__builtins__": {}}, {})))
+    """Integer result of a simple arithmetic expression (bash ``bc`` subset).
+
+    Uses a restricted AST (no ``eval`` of arbitrary code): only numeric constants
+    and ``+ - * / // %`` on subexpressions.
+    """
+    tree = ast.parse(expr.strip(), mode="eval")
+    if not isinstance(tree, ast.Expression):
+        raise ValueError("expected a single expression")
+    return int(_eval_arith_node(tree.body))
 
 
 def get_node_memory_bytes(node: str, oc: str | None = None) -> int:
