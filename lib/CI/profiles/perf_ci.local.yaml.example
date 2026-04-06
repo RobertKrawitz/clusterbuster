@@ -1,7 +1,10 @@
-# ClusterBuster performance CI profile — ~64GiB / 32 CPU workers; up to ~6 hours.
+# Copy to perf_ci.local.yaml (gitignored) for memory-limited clusters:
+#   cp lib/CI/profiles/perf_ci.local.yaml.example lib/CI/profiles/perf_ci.local.yaml
+# Then: ./run-perf-ci-suite --profile=perf_ci.local
+# Diff vs perf_ci.yaml: third memory-params line is 120:8:4:256Mi:random (not 16:2).
 ---
 version: 1
-name: perf_ci
+name: perf_ci_local
 
 options:
   force-pull: 1
@@ -41,7 +44,7 @@ options:
   memory-params:
     - "120:8:4:512Mi:1"
     - "180:1:1:6Gi:1"
-    - "120:16:2:256Mi:random"
+    - "120:8:4:256Mi:random"
 
   hammerdb-timeout: 3600
   "timeout:hammerdb:vm": 3600
