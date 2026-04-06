@@ -227,6 +227,19 @@ Prioritized from peer review and comparison with the historical shell driver beh
 
 The `.ci` files depend on `source`, dynamic function names (`memory_test`), and globals injected by the driver (`runtimeclasses`, `counter`, `workload`). Calling `bash -c 'source …'` from Python is brittle and unmaintainable. Python uses explicit plugins and a typed execution context instead.
 
+## Future work (post–Phase 2)
+
+**Profile authoring and YAML typing:** Today, many profile and CI options are carried as **structured strings** that mirror the historical shell tokenization (colon-separated matrices, comma lists embedded in one value, etc.). A follow-on effort should move these to **native YAML data types** in `lib/CI/profiles/*.yaml` (and corresponding handling in `profile_yaml` / `process_option`), so profiles are easier to validate, diff, and edit without learning ad hoc micro-syntax.
+
+Concrete directions:
+
+- **Parameterized workload specs** — Options such as **`files-params`**, **`memory-params`**, and **`hammerdb-params`** should be expressed as **YAML sequences and mappings** (e.g. list of test matrices) rather than a single encoded string per row.
+- **Comma-delimited lists** — Replace comma-separated scalars in strings with **YAML arrays** where the meaning is “list of values.”
+- **Resource limits and requests** — Represent CPU/memory/storage limits and requests as **structured fields** (numbers + units or nested objects), not opaque strings, unless a downstream API truly requires a single string.
+- **Scoped / matrix options** — Constructs such as **`volume:files,fio:!vm=…`** (workload/runtime-scoped volume and placement rules) should gain **first-class YAML structure** (e.g. nested objects keyed by workload, runtime class, or deployment type) instead of encoding scope and punctuation in one string.
+
+This work is **orthogonal** to Phase 2’s “YAML-first” orchestration path: Phase 2 treats YAML profiles as the supported authoring format while still expanding them to **`key=value`** lines for **`process_option`** parity. The future step is to **narrow or eliminate** that string layer for new or migrated profiles.
+
 ## Out of scope (Phase 3+)
 
 - Replacing the main [`clusterbuster`](../clusterbuster) bash script.
