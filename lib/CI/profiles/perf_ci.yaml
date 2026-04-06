@@ -31,6 +31,7 @@ options:
 
   cpusoaker-timeout: 1200
   cpusoaker-replica-increment: 20
+  cpusoaker-max-replicas: 80
   "pod-start-timeout:cpusoaker:!vm": 180
   "pod-start-timeout:cpusoaker:vm": 600
 
