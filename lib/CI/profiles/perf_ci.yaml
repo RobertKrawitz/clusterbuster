@@ -41,7 +41,8 @@ options:
   memory-params:
     - "120:8:4:512Mi:1"
     - "180:1:1:6Gi:1"
-    - "120:16:2:256Mi:random"
+    # 16×2 VMs exceeded cluster RAM (16×16Gi + overhead → unschedulable). Keep 32 workers as 8×4.
+    - "120:8:4:256Mi:random"
 
   hammerdb-timeout: 3600
   "timeout:hammerdb:vm": 3600
