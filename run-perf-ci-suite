@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 # Copyright 2026 Robert Krawitz/Red Hat
 # SPDX-License-Identifier: Apache-2.0
-"""Thin entry for the Clusterbuster CI suite; implementation is in ``lib.clusterbuster.ci.run_perf``."""
+"""Thin entry for the Clusterbuster CI suite; implementation is in ``lib.clusterbuster.ci.run_perf``.
+
+AI-assisted tooling (Cursor Agent).
+"""
 
 from __future__ import annotations
 
