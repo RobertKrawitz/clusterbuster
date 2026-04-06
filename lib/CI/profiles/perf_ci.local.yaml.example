@@ -1,0 +1,69 @@
+# Copy to perf_ci.local.yaml (gitignored) for memory-limited clusters:
+#   cp lib/CI/profiles/perf_ci.local.yaml.example lib/CI/profiles/perf_ci.local.yaml
+# Then: ./run-perf-ci-suite --profile=perf_ci.local
+# Diff vs perf_ci.yaml: third memory-params line is 120:8:4:256Mi:random (not 16:2).
+---
+version: 1
+name: perf_ci_local
+
+options:
+  force-pull: 1
+
+  files-params:
+    - "1:64:64:4096:4096:0"
+    - "1:64:64:4096:4096:1"
+    - "1:64:64:65536:262144:0"
+    - "1:64:64:65536:262144:1"
+  files-timeout: 1800
+
+  job_runtime: 60
+
+  fio-fdatasync: 0
+  fio-patterns: "read,write,randread,randwrite"
+  fio-iodepths: "1,4"
+  fio-ioengines: libaio
+  fio-ninst: "1,4"
+  fio-absolute-filesize: 128Gi
+  fio-timeout: 3600
+  fio-memsize: 4096
+
+  uperf-msg-sizes: "64,1024,8192"
+  uperf-nthr: 4
+  uperf-ninst: "1,4"
+  uperf-timeout: 300
+
+  cpusoaker-timeout: 1200
+  cpusoaker-replica-increment: 20
+  cpusoaker-max-replicas: 80
+  "pod-start-timeout:cpusoaker:!vm": 180
+  "pod-start-timeout:cpusoaker:vm": 600
+
+  memory-timeout: 7200
+  "vm-cores:memory": 4
+  "vm-memory:memory": 16Gi
+  memory-params:
+    - "120:8:4:512Mi:1"
+    - "180:1:1:6Gi:1"
+    - "120:8:4:256Mi:random"
+
+  hammerdb-timeout: 3600
+  "timeout:hammerdb:vm": 3600
+  hammerdb-params:
+    - "1200:pg:2:1:4:tpcc"
+    - "1200:mariadb:2:1:4:tpcc"
+  "limit:hammerdb":
+    - "memory=7Gi"
+    - "cpu=4"
+  "vm-cores:hammerdb": 5
+  "vm-memory:hammerdb": 8Gi
+
+  artifactdir: ""
+  virtiofsd-direct: 1
+  use-python-venv: 1
+  cleanup: 1
+  restart: 0
+  deployment-type: replicaset
+
+  "volume:files,fio:!vm": ":emptydir:/var/opt/clusterbuster"
+  "volume:files:vm": ":emptydisk:/var/opt/clusterbuster:size=auto:inodes=auto"
+  "volume:fio:vm": ":emptydisk:/var/opt/clusterbuster:size=auto"
