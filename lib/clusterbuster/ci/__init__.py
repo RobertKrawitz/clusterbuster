@@ -16,6 +16,7 @@ __all__ = [
     "ClusterbusterRunner",
     "load_yaml_profile",
     "resolve_profile_path",
+    "run_perf_ci_suite",
 ]
 
 
@@ -25,4 +26,8 @@ def __getattr__(name: str) -> Any:
         from clusterbuster.ci import profile_yaml as _py
 
         return getattr(_py, name)
+    if name == "run_perf_ci_suite":
+        from clusterbuster.ci.run_perf import run_perf_ci_suite as _fn
+
+        return _fn
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

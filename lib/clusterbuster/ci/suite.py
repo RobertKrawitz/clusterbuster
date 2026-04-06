@@ -39,9 +39,9 @@ class ClusterbusterCISuite:
         registry: dict[str, WorkloadPlugin] | None = None,
     ) -> None:
         self.config = config
-        self.runner = runner or ClusterbusterRunner(clusterbuster_exe)
         top = Path(__file__).resolve().parents[3]
         self._cb_exe = Path(clusterbuster_exe) if clusterbuster_exe else top / "clusterbuster"
+        self.runner = runner or ClusterbusterRunner(self._cb_exe)
         self._registry = registry or default_registry()
         self._known_cb: set[str] | None = None
         self.jobs: list[str] = []
@@ -104,7 +104,7 @@ class ClusterbusterCISuite:
             extra_clusterbuster_args=merged,
             force_cleanup_timeout=self.config.force_cleanup_timeout or None,
             cwd=self._cb_exe.parent,
-            debugonly=False,
+            debugonly=bool(self.config.dontdoit),
             restart=self.config.restart,
             is_report_dir=_is_report_dir,
         )
@@ -117,6 +117,8 @@ class ClusterbusterCISuite:
             self.failures.append(full_jobname)
         if increment_global_counter:
             self._global_job_counter += 1
+        if self.config.partial_results_hook is not None:
+            self.config.partial_results_hook(self)
         return status
 
     def run(self) -> int:
