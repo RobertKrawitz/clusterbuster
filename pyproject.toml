@@ -19,6 +19,9 @@ dev = [
     "pytest>=7.0",
 ]
 
+[project.scripts]
+run-perf-ci-suite = "clusterbuster.ci.run_perf:main"
+
 [tool.setuptools.packages.find]
 where = ["lib"]
 
