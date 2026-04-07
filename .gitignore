@@ -13,3 +13,5 @@ examples/.cb-ordered-smoke.*.sh
 # Local ClusterBuster CI report trees / tarballs for testing (not committed)
 cb-ci-*/
 cb-ci-*.tar
+# Optional copy of a profile with local tweaks (e.g. smaller VM counts); not committed
+lib/CI/profiles/*.local.yaml

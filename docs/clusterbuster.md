@@ -557,12 +557,11 @@ created to support
 but may of course be used for other purposes.
 
 The perf CI suite runs workloads in a loop with different test
-configurations, and uses profiles to specify defaults. The CI suite
-workloads, located in `lib/CI/workloads`, specify how the workloads
-should be run and contain code to run the workloads in the appropriate
-loop.  The profiles contain default arguments for the run in addition
-to for the individual workloads, enabling tailoring a run for the
-desired tradeoff between thoroughness and runtime.
+configurations, and uses profiles under `lib/CI/profiles` to specify defaults.
+Workload matrices are implemented in Python under `lib/clusterbuster/ci/workloads/`
+(see `docs/clusterbuster-ci-python-phase2.md`). The profiles contain default
+arguments for the run in addition to those for the individual workloads,
+enabling tailoring a run for the desired tradeoff between thoroughness and runtime.
 
 Entries in profiles are of the form `<name><:conditions>=<value>` where
 the `name` and `value` are either ClusterBuster arguments or CI suite
