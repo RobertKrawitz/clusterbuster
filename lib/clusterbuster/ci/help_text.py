@@ -167,7 +167,7 @@ def _files_help_options() -> str:
     fl = FilesWorkload()
     return f"""\
     Files test options:
-    	The files
+        The files
         --files-timeout=seconds
                                 Time the job out after specified time.  Default
                                 is the global timeout default.
@@ -300,7 +300,11 @@ def build_full_help(
     """Assemble the full help string."""
     pdir = profile_dir if profile_dir is not None else repo_root / "lib" / "CI" / "profiles"
     profiles = _list_profile_basenames(pdir)
-    profile_lines = "\n".join(f"                                - {n}" for n in profiles) if profiles else "                                - "
+    if profiles:
+        profile_lines = "\n".join(
+            f"                                - {n}" for n in profiles)
+    else:
+        profile_lines = "                                - "
 
     workload_docs = _workload_documentation()
     body = f"""Usage: run-perf-ci-suite [options | clusterbuster_options] [workloads]
@@ -361,6 +365,12 @@ def build_full_help(
                                 artifacts directory
         --unique-prefix         Prefix the pod names in each job with a
                                 distinct string to aid in later identification.
+
+        -n                      Print the clusterbuster command lines that
+                                would be run, but do not run them.
+        -N                      Run clusterbuster with -n (dry-run) for each
+                                job, printing the manifests that would be
+                                created without contacting the cluster.
 
     All other options listed below may be of the form
     --option:<workload>:<runtime>=value to specify that the value should apply

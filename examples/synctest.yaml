@@ -1,0 +1,9 @@
+# Run as
+# clusterbuster -f examples/synctest.yaml
+options:
+  cleanup: true
+  workloadruntime: 30
+  workload: synctest
+  synctest-count: 5
+  synctest-cluster-count: 10
+  synctest-sleep: 1

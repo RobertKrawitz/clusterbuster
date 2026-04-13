@@ -7,11 +7,11 @@ import fnmatch
 import logging
 from typing import Any
 
-_LOG = logging.getLogger("clusterbuster.ci.workloads.cpusoaker")
-
 from clusterbuster.ci.compat.options import parse_optvalues
 from clusterbuster.ci.execution import RunJobParams
 from clusterbuster.ci.helpers import compute_timeout
+
+_LOG = logging.getLogger("clusterbuster.ci.workloads.cpusoaker")
 
 
 class CpusoakerWorkload:
@@ -94,7 +94,6 @@ class CpusoakerWorkload:
                         ),
                     ),
                     extra_clusterbuster_args=extra,
-                    increment_global_counter=True,
                 )
                 if st != 0:
                     return

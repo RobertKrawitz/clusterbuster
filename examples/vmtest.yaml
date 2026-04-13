@@ -1,0 +1,14 @@
+# Run as
+# clusterbuster -f examples/vmtest.yaml
+options:
+  cleanup: true
+  precleanup: true
+  cleanup-always: true
+  report-object-creation: false
+  replicas: 2
+  deployment-type: vm
+  requests: "memory=2Gi"
+  vm-cores: 2
+  namespaces: 1
+  workload: sleep
+  exit-at-end: true

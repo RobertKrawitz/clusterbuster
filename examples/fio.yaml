@@ -1,0 +1,11 @@
+# Run as
+# clusterbuster -f examples/fio.yaml
+options:
+  cleanup: true
+  workloadruntime: 10
+  workload: fio
+  replicas: 4
+  antiaffinity: true
+  exit-at-end: true
+  precleanup: true
+  report-object-creation: false

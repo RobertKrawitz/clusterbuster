@@ -119,24 +119,27 @@ class FioWorkload:
                 abs_fs = self.absolute_filesize
                 max_abs = self.max_absolute_filesize
                 if abs_fs <= 0 or max_abs <= 0:
-                    client = suite.config.client_pin
-                    if not client:
-                        raise RuntimeError(
-                            "fio needs node memory when file sizes are relative; set --ci-client-pin"
-                        )
-                    node_mem = get_node_memory_bytes(client)
+                    if suite.config.dontdoit:
+                        node_mem = 64 * 1024 * 1024 * 1024
+                    else:
+                        client = suite.config.client_pin
+                        if not client:
+                            raise RuntimeError(
+                                "fio needs node memory when file sizes are relative; set --ci-client-pin"
+                            )
+                        node_mem = get_node_memory_bytes(client)
                     if abs_fs <= 0:
                         abs_fs = computeit(f"{node_mem} * {self.relative_filesize}")
                     if max_abs <= 0:
                         max_abs = computeit(f"{node_mem} * {self.max_relative_filesize}")
-                mem_annot = ""
-                if self.pod_memsize > 0 and runtimeclass == "kata":
-                    mem_annot = (
-                        f'--pod-annotation=io.katacontainers.config.hypervisor.default_memory: "{self.pod_memsize}"'
-                    )
                 fs = computeit(f"{abs_fs} // {ninst}") if ninst else abs_fs
                 if fs > max_abs:
                     fs = max_abs
+                kata_args: list[str] = []
+                if self.pod_memsize > 0 and runtimeclass == "kata":
+                    kata_args.append(
+                        f"--pod-annotation=io.katacontainers.config.hypervisor.default_memory: {self.pod_memsize}"
+                    )
                 job_name = f"{ninst}P"
                 nvolumes: list[str] = []
                 for volspec in self.volumes:
@@ -156,9 +159,8 @@ class FioWorkload:
                     f"--fio_workdir={self.workdir}",
                     f"--fio-drop-cache={self.drop_cache}",
                     *nvolumes,
+                    *kata_args,
                 ]
-                if mem_annot:
-                    tail.append(mem_annot)
                 suite.run_clusterbuster_1(
                     RunJobParams(
                         workload=self.name,

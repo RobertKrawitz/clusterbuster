@@ -47,9 +47,9 @@ run() {
   "$@" || { echo "FAILED: $*"; exit 1; }
   echo "OK: $*"
 }
-run ./clusterbuster -f memory --deployment-type=vm
-run ./clusterbuster -f uperf --deployment-type=vm
-run ./clusterbuster -f fio --deployment-type=vm
-run ./clusterbuster -f hammerdb --hammerdb-driver=pg --deployment-type=vm
-run ./clusterbuster -f hammerdb --hammerdb-driver=mariadb --deployment-type=vm
+run ./clusterbuster -f examples/memory.yaml --deployment-type=vm
+run ./clusterbuster -f examples/uperf.yaml --deployment-type=vm
+run ./clusterbuster -f examples/fio.yaml --deployment-type=vm
+run ./clusterbuster -f examples/hammerdb.yaml --hammerdb-driver=pg --deployment-type=vm
+run ./clusterbuster -f examples/hammerdb.yaml --hammerdb-driver=mariadb --deployment-type=vm
 echo "All VM smoke tests passed."

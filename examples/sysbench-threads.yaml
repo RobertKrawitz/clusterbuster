@@ -1,0 +1,11 @@
+# Run as
+# clusterbuster -f examples/sysbench-threads.yaml
+options:
+  workload: sysbench
+  sysbench-workload: threads
+  precleanup: true
+  cleanup: true
+  workloadruntime: 10
+  exit-at-end: true
+  report-object-creation: false
+  sysbench-threads: 8

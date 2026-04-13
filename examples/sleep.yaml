@@ -1,0 +1,10 @@
+# Run as
+# clusterbuster -f examples/sleep.yaml
+options:
+  cleanup: true
+  workload: sleep
+  precleanup: true
+  report-object-creation: false
+  replicas: 8
+  namespaces: 1
+  exit-at-end: true

@@ -7,13 +7,13 @@ import fnmatch
 import logging
 from typing import Any
 
-_LOG = logging.getLogger("clusterbuster.ci.workloads.files")
-
 from clusterbuster.ci.compat import parse_size
 from clusterbuster.ci.compat.options import bool_str, bool_str_list, parse_optvalues
 from clusterbuster.ci.compat.sizes import parse_size_colon_line
 from clusterbuster.ci.execution import RunJobParams
 from clusterbuster.ci.helpers import compute_timeout, roundup_interval
+
+_LOG = logging.getLogger("clusterbuster.ci.workloads.files")
 
 
 class FilesWorkload:

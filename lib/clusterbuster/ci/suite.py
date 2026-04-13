@@ -51,6 +51,10 @@ class ClusterbusterCISuite:
         plugin.initialize_options()
         extra_cb: list[str] = []
         rc = runtimeclass or "pod"
+        norm_wl = _norm_opt(workload)
+        other_prefixes = {
+            _norm_opt(n) for n in self._registry if _norm_opt(n) != norm_wl
+        }
         for option in self.config.extra_args:
             p = parse_ci_option(option, workload, rc)
             if p is None or not p.noptname1:
@@ -58,12 +62,14 @@ class ClusterbusterCISuite:
             optvalue = splitarg(p.optvalue)
             handled = plugin.process_option(option, workload, rc)
             if not handled:
+                key = _norm_opt(p.noptname1)
+                if any(key.startswith(pfx) for pfx in other_prefixes):
+                    continue
                 if self._known_cb is None:
                     try:
                         self._known_cb = load_known_clusterbuster_options(self._cb_exe)
                     except OSError:
                         self._known_cb = set()
-                key = _norm_opt(p.noptname1)
                 if key in self._known_cb:
                     extra_cb.append(f"--{p.noptname}={optvalue}")
         return extra_cb
@@ -73,7 +79,6 @@ class ClusterbusterCISuite:
         params: RunJobParams,
         *,
         extra_clusterbuster_args: Sequence[str] | None = None,
-        increment_global_counter: bool = False,
     ) -> int:
         if self._hard_fail_abort:
             return 1
@@ -101,7 +106,7 @@ class ClusterbusterCISuite:
             extra_clusterbuster_args=merged,
             force_cleanup_timeout=self.config.force_cleanup_timeout or None,
             cwd=self._cb_exe.parent,
-            debugonly=bool(self.config.dontdoit),
+            debugonly=bool(self.config.debugonly),
             restart=self.config.restart,
             is_report_dir=_is_report_dir,
         )
@@ -114,8 +119,7 @@ class ClusterbusterCISuite:
             self.failures.append(full_jobname)
             if self.config.hard_fail_on_error:
                 self._hard_fail_abort = True
-        if increment_global_counter:
-            self._global_job_counter += 1
+        self._global_job_counter += 1
         if self.config.partial_results_hook is not None:
             self.config.partial_results_hook(self)
         return status
@@ -123,7 +127,6 @@ class ClusterbusterCISuite:
     def run(self) -> int:
         default_rt = self.config.default_job_runtime
         for wl in self.config.normalized_workloads():
-            self._global_job_counter = 0
             plugin = self._registry.get(wl)
             if plugin is None:
                 self._log.warning("Unsupported workload %s", wl)

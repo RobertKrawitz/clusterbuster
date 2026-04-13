@@ -1,0 +1,12 @@
+# Run as
+# clusterbuster -f examples/cpusoaker.yaml
+options:
+  cleanup: true
+  workload: cpusoaker
+  workloadruntime: 10
+  precleanup: true
+  report-object-creation: false
+  deps-per-namespace: 8
+  processes: 3
+  namespaces: 1
+  exit-at-end: true

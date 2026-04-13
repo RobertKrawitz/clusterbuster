@@ -84,25 +84,58 @@ In addition, these special purpose workloads are available:
 
 - *sleep* -- sleep for configured interval
 
+- *synctest* -- synchronization-only workload for validating sync
+  infrastructure.
+
 - *waitforever* -- dummy test, runs a workload that waits forever.
   This can be used to create pods or VMs that persist as
   infrastructure for running non-ClusterBuster workloads.
 
-All supported workloads are under the [lib/workloads](lib/workloads)
-directory.
+Workload plugins are under
+[lib/clusterbuster/driver/workloads](lib/clusterbuster/driver/workloads).
 
-## Python package and shell-to-Python migration
+## Deprecation of clusterbuster.sh
 
-The repository includes a **`pyproject.toml`** so you can install ClusterBuster’s Python code in editable mode (reporting and future modules). The workload-options regression harness lives under [`tests/workload-options/`](tests/workload-options/) (Python package [`workload_options/`](tests/workload-options/workload_options/) inside that directory; test infrastructure, not part of the installed package):
+The original bash implementation has been renamed to **`clusterbuster.sh`**
+and is **deprecated**.  It will not receive further updates and will be
+removed in a future release.  Please use the new Python-based
+**`./clusterbuster`** driver instead, which provides the same CLI
+interface with improved maintainability and test coverage.
+
+## Python package
+
+The repository includes a **`pyproject.toml`** so you can install
+ClusterBuster in editable mode:
 
 ```bash
 pip install -e .
 ```
 
-Declared dependencies include **PyYAML**, **kubernetes**, and **openshift** (dynamic client), matching the direction of moving off raw `oc`/`kubectl` subprocesses for API-driven control-plane work where practical. OpenShift-specific behavior (for example Prometheus under `openshift-monitoring`) is preserved, not removed, during migration.
+Declared dependencies include **PyYAML**, **kubernetes**, and
+**openshift** (dynamic client).  OpenShift-specific behavior (for
+example Prometheus under `openshift-monitoring`) is preserved.
 
-**Phase 1 (workload-options test harness):** The regression driver under [`tests/workload-options/`](tests/workload-options/) holds `cases.yaml`, reports, and the Python package [`workload_options/`](tests/workload-options/workload_options/). From the repo root you can run `PYTHONPATH=tests/workload-options python3 -m workload_options` or execute [`tests/workload-options/run-workload-option-tests`](tests/workload-options/run-workload-option-tests) (adds `tests/workload-options` to `PYTHONPATH`) with the same flags as before. See that directory’s README for details. Offline checks: `pip install -e .` (for reporting deps) and `pytest tests/test_workload_options.py` (pytest adds `lib/` and `tests/workload-options/` on the path via `pyproject.toml`).
+The driver (`./clusterbuster` at the repo root) provides full CLI
+parsing, YAML and legacy job-file support, dry-run output, and
+orchestration of all supported workloads.
 
-**Later phases (separate PRs):** Porting the main [`clusterbuster`](clusterbuster) bash driver, [`lib/libclusterbuster.sh`](lib/libclusterbuster.sh), and workload plugins under [`lib/workloads/`](lib/workloads/) is intentionally split across multiple pull requests. Perf CI orchestration is **Python** via [`run-perf-ci-suite`](run-perf-ci-suite) and [`lib/clusterbuster/ci/`](lib/clusterbuster/ci/) (the legacy bash CI driver and `lib/CI/workloads/*.ci` fragments have been removed). Remaining follow-ups include folding in node image pull / `force-pull-clusterbuster-image` and other items tracked in `docs/clusterbuster-ci-python-phase2.md`.
+Job files may use either **YAML format** (an `options:` mapping with
+dash-separated keys and standard `true`/`false` values) or the legacy
+line-oriented format.  YAML examples are in
+[`examples/`](examples/).
+
+Perf CI orchestration is **Python** via [`run-perf-ci-suite`](run-perf-ci-suite) and [`lib/clusterbuster/ci/`](lib/clusterbuster/ci/) (the legacy bash CI driver and `lib/CI/workloads/*.ci` fragments have been removed).
+
+### Package structure
+
+- `lib/clusterbuster/driver/` — driver: config, CLI, orchestrator,
+  sync, monitoring, reporting, metrics, cleanup, artifacts, manifests.
+- `lib/clusterbuster/driver/workloads/` — workload plugins (15
+  workloads, `WorkloadBase` + `@register` decorator).
+- `lib/clusterbuster/ci/` — CI compatibility layer (`run-perf-ci-suite`
+  support).
+- `lib/pod_files/` — in-pod workload scripts
+  (`clusterbuster_pod_client` subclasses).
+- `tests/` — pytest suite (529+ tests).
 
 Please peruse the [full documentation](docs/clusterbuster.md)

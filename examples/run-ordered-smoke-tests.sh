@@ -50,17 +50,17 @@ run() {
   "$@" || { echo "FAILED: $*"; exit 1; }
   echo "OK: $*"
 }
-run ./clusterbuster -f memory
-run ./clusterbuster -f uperf
-run ./clusterbuster -f fio
-run ./clusterbuster -f hammerdb --hammerdb-driver=pg
-run ./clusterbuster -f hammerdb --hammerdb-driver=mariadb
+run ./clusterbuster -f examples/memory.yaml
+run ./clusterbuster -f examples/uperf.yaml
+run ./clusterbuster -f examples/fio.yaml
+run ./clusterbuster -f examples/hammerdb.yaml --hammerdb-driver=pg
+run ./clusterbuster -f examples/hammerdb.yaml --hammerdb-driver=mariadb
 if [[ "$skip_vm" -eq 0 ]]; then
-  run ./clusterbuster -f memory --deployment-type=vm
-  run ./clusterbuster -f uperf --deployment-type=vm
-  run ./clusterbuster -f fio --deployment-type=vm
-  run ./clusterbuster -f hammerdb --hammerdb-driver=pg --deployment-type=vm
-  run ./clusterbuster -f hammerdb --hammerdb-driver=mariadb --deployment-type=vm
+  run ./clusterbuster -f examples/memory.yaml --deployment-type=vm
+  run ./clusterbuster -f examples/uperf.yaml --deployment-type=vm
+  run ./clusterbuster -f examples/fio.yaml --deployment-type=vm
+  run ./clusterbuster -f examples/hammerdb.yaml --hammerdb-driver=pg --deployment-type=vm
+  run ./clusterbuster -f examples/hammerdb.yaml --hammerdb-driver=mariadb --deployment-type=vm
   echo "All 10 tests passed (5 pod + 5 VM)."
 else
   echo "========== Skipping VM smoke tests (aarch64 cluster; set CB_ALLOW_VM_AARCH64=1 to force) =========="

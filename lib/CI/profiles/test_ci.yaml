@@ -21,6 +21,11 @@ options:
   fio-absolute-filesize: 2Gi
   fio-timeout: 3600
   fio-memsize: 4096
+  # Kata VM memory limit for fio: filesize + VM size + 1Gi overhead
+  # to accommodate virtiofsd page cache in the pod cgroup.
+  # 2Gi (2048) + 4096 + 1024 = 7168 MiB
+  "limit:fio:kata":
+    - "memory=7168Mi"
   fio-blocksize: 1048576
 
   uperf_runtime: 30

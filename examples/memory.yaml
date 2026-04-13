@@ -1,0 +1,12 @@
+# Run as
+# clusterbuster -f examples/memory.yaml
+options:
+  cleanup: true
+  workload: memory
+  workloadruntime: 10
+  precleanup: true
+  report-object-creation: false
+  replicas: 8
+  processes: 3
+  namespaces: 1
+  memory-size: "512Mi"
