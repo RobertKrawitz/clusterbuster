@@ -1,0 +1,14 @@
+# Run as
+# clusterbuster -f examples/files.yaml
+options:
+  cleanup: true
+  workload: files
+  dirs-per-volume: 256
+  files-per-dir: 256
+  file-block-size: 1024
+  file-size: 1024
+  precleanup: true
+  report-object-creation: false
+  replicas: 8
+  namespaces: 1
+  exit-at-end: true

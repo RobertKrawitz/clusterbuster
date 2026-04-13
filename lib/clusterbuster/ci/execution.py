@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Sequence
 
@@ -27,6 +28,10 @@ class RunJobParams:
     timeout: int | None = None
     job_runtime: int | None = None
     tail_argv: tuple[str, ...] = ()
+
+
+def _iso_utc(epoch: int) -> str:
+    return datetime.fromtimestamp(epoch, tz=timezone.utc).isoformat()
 
 
 def _to_hms(start: int, end: int) -> str:
@@ -154,7 +159,7 @@ def run_clusterbuster_job(
     time.sleep(job_delay)
     t0 = int(time.time())
     _LOG.info("")
-    _LOG.info("*** Running %s at (epoch %s)", full_jobname, t0)
+    _LOG.info("*** Running %s at %s", full_jobname, _iso_utc(t0))
 
     argv = build_clusterbuster_argv(
         dontdoit=dontdoit,
@@ -177,6 +182,15 @@ def run_clusterbuster_job(
         runtimeclass=runtimeclass,
         tail=params.tail_argv,
     )
+
+    if debugonly:
+        import shlex
+        parts = [shlex.quote(str(clusterbuster_exe))] + [shlex.quote(a) for a in argv]
+        _LOG.info("%s", " ".join(parts))
+        t1 = int(time.time())
+        hms = _to_hms(t0, t1)
+        return 0, hms
+
     res = runner.run(argv, cwd=cwd)
     out = (res.stdout or "") + (res.stderr or "")
     if out:
@@ -184,10 +198,10 @@ def run_clusterbuster_job(
     status = res.returncode
     t1 = int(time.time())
     hms = _to_hms(t0, t1)
-    _LOG.info("Job took %s, done at (epoch %s)", hms, t1)
-
-    if debugonly:
-        return status, hms
+    if status == 0:
+        _LOG.info("Job took %s, done at %s", hms, _iso_utc(t1))
+    else:
+        _LOG.info("Job FAILED (rc=%d) after %s at %s", status, hms, _iso_utc(t1))
 
     if status == 0 and jobdir and tmp_jobdir:
         # Success: artifacts may still be under ``tmp_jobdir`` (``…/jobname.tmp``) or

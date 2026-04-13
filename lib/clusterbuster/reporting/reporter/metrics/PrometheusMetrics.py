@@ -180,9 +180,9 @@ class PrometheusMetrics:
                 if (start is None or value[0] >= start) and (end is None or value[0] <= end):
                     answer.append(value)
         else:
-            for i in range(1, len(values) - 1):
-                prev = answer[i - 1]
-                cur = answer[i]
+            for i in range(1, len(values)):
+                prev = values[i - 1]
+                cur = values[i]
                 if prev[0] >= start and cur[0] <= end:
                     answer.append(cur)
         return answer
@@ -191,7 +191,7 @@ class PrometheusMetrics:
         if time < values[0][0] or time > values[len(values) - 1][0]:
             return None
         else:
-            for i in range(1, len(values) - 1):
+            for i in range(1, len(values)):
                 prev = values[i - 1]
                 cur = values[i]
                 if prev[0] <= time and cur[0] > time:
@@ -218,8 +218,8 @@ class PrometheusMetrics:
         """
         values = self.__filter_metrics_by_time('rate', values)
         answer = None
-        if len(values) > 2:
-            for i in range(1, len(values) - 1):
+        if len(values) >= 2:
+            for i in range(1, len(values)):
                 rate = (values[i][1] - values[i - 1][1]) / (values[i][0] - values[i - 1][0])
                 if answer is None or rate > answer:
                     answer = rate

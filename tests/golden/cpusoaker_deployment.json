@@ -1,0 +1,178 @@
+[
+  {
+    "kind": "Namespace",
+    "labels": {
+      "clusterbuster": "true",
+      "clusterbuster-id": "UUID",
+      "clusterbuster-namespace": "UUID",
+      "clusterbuster-objtype": "namespace",
+      "clusterbuster-uuid": "UUID",
+      "clusterbuster-workload": "true",
+      "clusterbuster-x-namespace": "XUUID",
+      "clusterbuster-xuuid": "XUUID",
+      "clusterbusterbase": "true"
+    },
+    "name": "clusterbuster-0",
+    "namespace": ""
+  },
+  {
+    "headless": true,
+    "kind": "Service",
+    "labels": {
+      "clusterbuster": "true",
+      "clusterbuster-id": "UUID",
+      "clusterbuster-objtype": "service",
+      "clusterbuster-service": "UUID",
+      "clusterbuster-uuid": "UUID",
+      "clusterbuster-workload": "true",
+      "clusterbuster-x-service": "XUUID",
+      "clusterbuster-xuuid": "XUUID",
+      "clusterbusterbase": "true"
+    },
+    "name": "svc-clusterbuster-sync-sync",
+    "namespace": "clusterbuster-sync",
+    "ports": [
+      {
+        "name": "svc-clusterbuster-sync-sync-7778-tcp",
+        "port": 7778,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-sync-sync-7778-udp",
+        "port": 7778,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-sync-sync-7753-tcp",
+        "port": 7753,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-sync-sync-7753-udp",
+        "port": 7753,
+        "protocol": "UDP"
+      }
+    ],
+    "selector": {
+      "clusterbuster-sync-sync": "true"
+    }
+  },
+  {
+    "kind": "Pod",
+    "labels": {
+      "app": "clusterbuster-sync-sync",
+      "clusterbuster": "true",
+      "clusterbuster-id": "UUID",
+      "clusterbuster-monitor": "XUUID",
+      "clusterbuster-objtype": "sync",
+      "clusterbuster-sync": "UUID",
+      "clusterbuster-sync-sync": "true",
+      "clusterbuster-uuid": "UUID",
+      "clusterbuster-x-sync": "XUUID",
+      "clusterbuster-xuuid": "XUUID",
+      "clusterbusterbase": "true",
+      "instance": "clusterbuster-sync-sync",
+      "k8s-app": "clusterbuster-sync-sync",
+      "name": "clusterbuster-sync-sync",
+      "replica": "clusterbuster-sync-sync",
+      "sync": "true"
+    },
+    "name": "clusterbuster-sync",
+    "namespace": "clusterbuster-sync",
+    "restart_policy": "Never",
+    "run_as_non_root": true
+  },
+  {
+    "kind": "Service",
+    "labels": {
+      "clusterbuster": "true",
+      "clusterbuster-id": "UUID",
+      "clusterbuster-objtype": "service",
+      "clusterbuster-service": "UUID",
+      "clusterbuster-uuid": "UUID",
+      "clusterbuster-workload": "true",
+      "clusterbuster-x-service": "XUUID",
+      "clusterbuster-xuuid": "XUUID",
+      "clusterbusterbase": "true"
+    },
+    "name": "svc-clusterbuster-sync-sync",
+    "namespace": "clusterbuster-0",
+    "ports": [
+      {
+        "name": "svc-clusterbuster-sync-sync-7778",
+        "port": 7778,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-sync-sync-7753",
+        "port": 7753,
+        "protocol": "TCP"
+      }
+    ],
+    "service_type": "ExternalName"
+  },
+  {
+    "kind": "Deployment",
+    "labels": {
+      "app": "clusterbuster-0-cpusoaker",
+      "clusterbuster": "true",
+      "clusterbuster-cpusoaker": "UUID",
+      "clusterbuster-id": "UUID",
+      "clusterbuster-logger": "true",
+      "clusterbuster-monitor": "XUUID",
+      "clusterbuster-objtype": "worker",
+      "clusterbuster-uuid": "UUID",
+      "clusterbuster-worker": "UUID",
+      "clusterbuster-workload": "true",
+      "clusterbuster-x-worker": "XUUID",
+      "clusterbuster-xuuid": "XUUID",
+      "clusterbusterbase": "true",
+      "cpusoaker": "true",
+      "instance": "clusterbuster-0-cpusoaker-0",
+      "k8s-app": "clusterbuster-0-cpusoaker",
+      "name": "clusterbuster-0-cpusoaker-0",
+      "replica": "clusterbuster-0-cpusoaker-0"
+    },
+    "match_labels": {
+      "instance": "clusterbuster-0-cpusoaker-0"
+    },
+    "name": "clusterbuster-0-cpusoaker-0",
+    "namespace": "clusterbuster-0",
+    "run_as_non_root": true,
+    "template_labels": {
+      "app": "clusterbuster-0-cpusoaker",
+      "clusterbuster": "true",
+      "clusterbuster-cpusoaker": "UUID",
+      "clusterbuster-id": "UUID",
+      "clusterbuster-logger": "true",
+      "clusterbuster-monitor": "XUUID",
+      "clusterbuster-objtype": "worker",
+      "clusterbuster-uuid": "UUID",
+      "clusterbuster-worker": "UUID",
+      "clusterbuster-workload": "true",
+      "clusterbuster-x-worker": "XUUID",
+      "clusterbuster-xuuid": "XUUID",
+      "clusterbusterbase": "true",
+      "cpusoaker": "true",
+      "instance": "clusterbuster-0-cpusoaker-0",
+      "k8s-app": "clusterbuster-0-cpusoaker",
+      "name": "clusterbuster-0-cpusoaker-0",
+      "replica": "clusterbuster-0-cpusoaker-0"
+    }
+  },
+  {
+    "kind": "Namespace",
+    "labels": {
+      "clusterbuster": "true",
+      "clusterbuster-id": "UUID",
+      "clusterbuster-namespace": "UUID",
+      "clusterbuster-objtype": "namespace",
+      "clusterbuster-uuid": "UUID",
+      "clusterbuster-x-namespace": "XUUID",
+      "clusterbuster-xuuid": "XUUID",
+      "clusterbusterbase": "true"
+    },
+    "name": "clusterbuster-sync",
+    "namespace": ""
+  }
+]

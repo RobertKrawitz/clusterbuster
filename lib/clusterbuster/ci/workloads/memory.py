@@ -7,12 +7,12 @@ import fnmatch
 import logging
 from typing import Any
 
-_LOG = logging.getLogger("clusterbuster.ci.workloads.memory")
-
 from clusterbuster.ci.compat import parse_size
 from clusterbuster.ci.compat.options import parse_optvalues
 from clusterbuster.ci.execution import RunJobParams
 from clusterbuster.ci.helpers import compute_timeout
+
+_LOG = logging.getLogger("clusterbuster.ci.workloads.memory")
 
 
 class MemoryWorkload:

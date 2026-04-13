@@ -1,0 +1,19 @@
+# Run as
+# clusterbuster -f examples/hammerdb.yaml
+#
+# Uses the clusterbuster-hammerdb image (client and database colocated per pod).
+# NOTE: Legacy format had two 'limit' lines. YAML requires unique keys.
+# Use CLI: --limit=memory=7Gi --limit=cpu=4
+options:
+  cleanup: true
+  workload: hammerdb
+  workloadruntime: 180
+  hammerdb-driver: pg
+  hammerdb-benchmark: tpcc
+  hammerdb-virtual-users: 4
+  hammerdb-rampup: 1
+  replicas: 2
+  precleanup: true
+  exit-at-end: true
+  vm-cores: 5
+  vm-memory: "8Gi"

@@ -21,6 +21,7 @@ dev = [
 
 [project.scripts]
 run-perf-ci-suite = "clusterbuster.ci.run_perf:main"
+clusterbuster = "clusterbuster.driver:main"
 
 [tool.setuptools.packages.find]
 where = ["lib"]
@@ -28,3 +29,6 @@ where = ["lib"]
 [tool.pytest.ini_options]
 pythonpath = ["lib", "tests/workload-options"]
 testpaths = ["tests"]
+markers = [
+    "skipif: conditionally skip tests",
+]

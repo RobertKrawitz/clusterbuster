@@ -4,12 +4,11 @@ ClusterBuster is (yet another) tool for running workloads on OpenShift
 clusters.  Its purpose is to simplify running workloads from the
 command line and does not require external resources such as
 Elasticsearch to operate.  This was written by [Robert
-Krawitz](mailto:rlk@redhat.com).  The main package is written in bash;
-reporting and actual workloads are written in Python.
+Krawitz](mailto:rlk@redhat.com).  The driver, workload plugins,
+in-pod workloads, and reporting are all written in Python.
 
 It is also intended to be fairly straightforward to add new workloads
-as plugins.  Yes, it is possible to implement a plugin architecture
-with bash!
+as plugins.
 
 <!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-generate-toc again -->
 **Table of Contents**
@@ -20,7 +19,7 @@ with bash!
   - [Internals](#internals)
     - [Architecture](#architecture)
     - [Workloads](#workloads)
-      - [Workload Host API](#workload-host-api)
+      - [Workload Plugin API](#workload-plugin-api)
       - [Workload Client (Pod) API](#workload-client-pod-api)
         - [Public Members](#public-members)
         - [Running Workloads](#running-workloads)
@@ -59,11 +58,28 @@ lot of options available, but the best way of learning how to use it
 is to look at one of the example files located in
 `examples`.  If you have access to an OpenShift cluster
 with admin privileges (since it needs to create namespaces and do a
-few other privileged things) Any of those files can be used via
+few other privileged things) any of those files can be used via
 
 ```
 clusterbuster -f <file>
 ```
+
+Job files may use either the **YAML format** or the legacy
+line-oriented format.  YAML job files use an `options:` top-level key
+with dash-separated option names and standard YAML `true`/`false`
+values:
+
+```yaml
+options:
+  workload: cpusoaker
+  namespaces: 2
+  exit-at-end: true
+```
+
+Legacy line-oriented files (bare flags, `key=value`, `#` comments,
+backslash continuation) are also supported.  ClusterBuster tries YAML
+first and falls back to the legacy parser when the file is not a YAML
+mapping.
 
 ## Internals
 
@@ -76,7 +92,7 @@ ClusterBuster.
 always uses the **pod network** (cluster CNI)—not `hostNetwork` or node IPs. Workload Pods
 connect to the sync Service / pod address on that network. For VM deployments, guest traffic
 to sync still leaves through the KubeVirt launcher Pod, so it is still pod-network path from
-the cluster’s perspective. Anything that blocks pod-to-pod traffic (NetworkPolicy, service
+the cluster's perspective. Anything that blocks pod-to-pod traffic (NetworkPolicy, service
 mesh sidecars on workload Pods, etc.) can prevent sync while VM paths behave differently.
 
 **VM containerdisk images** (`clusterbuster-vm`, `clusterbuster-hammerdb-vm`): both qcow2 disks
@@ -97,173 +113,69 @@ runtime class on those clusters. The VM disk Makefile only builds **amd64** cont
 ClusterBuster supports extensible workloads.  At present, it supports
 uperf, fio, HammerDB, many small files, CPU/startup test, and a number of others.
 
-A workload requires, at a minimum, a workload definition in
-`lib/workloads`.  This is a set of bash functions that
-tell clusterbuster how to deploy the workload.
+Each workload is a Python class that subclasses `WorkloadBase` and is
+registered with the `@register` decorator.  All 15 workloads are
+implemented under `lib/clusterbuster/driver/workloads/`.  A workload
+plugin defines methods for option processing, arglist generation,
+configmap listing, metadata, and help text.  Client-server workloads
+(such as `server` and `uperf`) implement `server_arglist()` and
+`client_arglist()` instead of `arglist()`.
 
-Most workloads require in addition a component to run on the worker
-nodes.  These are written in python.  The node components, which
-reside in `lib/pod_files`, are responsible for
+Most workloads also require a component to run on the worker nodes.
+The node components reside in `lib/pod_files` and are responsible for
 initializing and running the workloads.  For most workloads, an
 additional synchronization/control service is used to ensure that all
 instances of the workload start simultaneously; the sync service also
 manages distributed time and collection of results.
 
 Finally, there are optional components for processing reports and
-performing analysis of the data.  These are written in Python.
+performing analysis of the data.
 
-#### Workload Host API
+#### Workload Plugin API
 
-ClusterBuster has an API to interface between the tool and workloads.
-Workloads are responsible for providing functions implementing these
-workloads.  The workload files are all sourced when clusterbuster
-starts.  All workload files must include a callback to clusterbuster
-of the form
+Workloads subclass `WorkloadBase` from
+`clusterbuster.driver.workload_registry` and use the `@register`
+decorator.  The class must define a `name` attribute and may define
+`aliases`.  The following methods may be overridden:
 
-* `register_workload name aliases...`
+| Method | Purpose |
+|--------|---------|
+| `process_options(builder, parsed)` | Handle workload-specific options; return `True` if consumed |
+| `finalize_extra_cli_args(builder)` | Post-parsing hook for extra args |
+| `arglist(ctx)` | Container command for single-role workloads |
+| `server_arglist(ctx)` / `client_arglist(ctx)` | Commands for client-server workloads |
+| `create_deployment(ctx)` | Custom deployment creation; return `True` to skip generic path |
+| `list_configmaps()` | Pod files for the system configmap |
+| `list_user_configmaps()` | Extra user-provided configmap files |
+| `calculate_logs_required(ns, deps, replicas, containers, processes)` | Expected log entry count |
+| `report_options()` | Options dict for report JSON |
+| `generate_metadata()` | Workload metadata for report JSON |
+| `help_options()` | Help text for workload-specific options |
+| `document()` | One-line description for `-H` output |
+| `supports_reporting()` | Whether the workload produces structured reports |
+| `workload_reporting_class()` | Report class name |
+| `requires_drop_cache()` | Whether per-pod cache dropping is needed |
+| `requires_writable_workdir()` | Whether the workdir must be writable |
+| `sysctls(config)` | Kernel sysctl requirements |
 
-which defines the name of the workload and any aliases that the user
-may use to invoke it (via `clusterbuster --workload=<workload>`).  The
-remainder of the workload file consists of a set of functions, all of
-which are named `<workload>_<api>`.  The workload file can contain
-other shell functions and variables, but they should all start with
-`_<workload>` (with at least one leading underscore).
+Example minimal workload:
 
-Note that any global variables that workload files need must be
-declared with
+```python
+from clusterbuster.driver.workload_registry import (
+    ArglistContext, WorkloadBase, pod_flags, register,
+)
 
-`declare -g <variable`
+@register
+class MyWorkload(WorkloadBase):
+    name = "myworkload"
+    aliases = ("mywl",)
 
-Without the `-g`, the value will not be preserved across function calls.
+    def arglist(self, ctx: ArglistContext) -> list[str]:
+        return ["python3", f"{ctx.mountdir}myworkload.py", *pod_flags(ctx)]
 
-The following APIs are supported:
-
-* `<workload>_document`
-
-  Print a short documentation string to stdout; this is used to
-  generate the workload-specific portion of the help.
-
-* `<workload>_help_options`
-
-  Print a detailed documentation string describing all supported
-  command line options for the workload.  Workload-specific options
-  should start with `--<workload>-`, but this is not enforced.  This
-  function is optional, and only need be provided if the workload
-  accepts options.
-
-* `<workload>_process_options  option[=value] options...`
-
-  Process options not handled by clusterbuster proper.  See one of the
-  workload files for an example.  Option names have all hyphens and
-  underscores stripped out, so the user can provide them as desired.
-  If there are any remaining unknown options, this function should
-  invoke `help` with the unknown options.  This function is optional,
-  and only need be provided if the workload accepts options.
-
-* `<workload>_supports_reporting`
-
-  Return true (0) if the workload supports reporting, false (non-zero
-  status) otherwise.  Assumes true if not provided.
-
-* `<workload>_list_configmaps`
-
-  Return a list of files that must be provided to the worker object
-  for the workload to run.  This consists of files in
-  `lib/pod_files` that are required to run the workload.
-  This is only needed if files other than `<workload>.py` are required.
-
-* `<workload>_list_user_configmaps`
-
-  Return a list of other files which must be provided for the workload
-  to run.  This is normally configuration files for the workload that
-  are too complex to be expressed as options.
-
-* `<workload>_calculate_logs_required  namespaces deployments replicas containers`
-
-  Calculate how many entities are expected to provide log files and
-  print that to stdout.  This is not normally necessary to provide,
-  as ClusterBuster will calculate it based on workload parameters.
-
-* `<workload>_create_deployment  namespace instance secret_count replicas containers_per_pod`
-
-  Create the YAML needed to deploy the workload.  Normally this
-  function will not actually generate the YAML directly; it will make
-  calls back to `create_standard_deployment`.  It may make other
-  calls; if this workload needs only a standard deployment, it is not
-  necessary to implement this.  See and `uperf.workload` in
-  `lib/workloads` for examples of the callbacks that it
-  may make.
-
-* `<workload>_arglist  namespace instance secret_count replicas containers_per_pod`
-
-  Generate the command line arguments required by the workload as a
-  YAML list.  Normally, this is not done directly, but rather by
-  calling back to `mk_yaml_args` to generate the necessary YAML
-  fragment.  This is only required if the workload takes command line
-  arguments.  Some workloads consist of multiple components, such as a
-  client or server, so there may be multiple such functions named
-  `<workload>_<subworkload>_arglist` corresponding to `-a` arguments
-  to `create_standard_arglist`.  This may also be used to set options
-  that this workload requires.
-
-* `<workload>_report_options`
-
-  Report options and their values as JSON fragments to stdout, for
-  incorporation into the final report.
-
-* `<workload>_generate_metadata`
-
-  Report metadata for the run as a list of JSON fragments of the form
-
-  ```
-  "jobs": {
-    "run_name1": metadata1,
-	"run_name2": metadata2,
-	...
-  }
-  ```
-  This is not the result of the run, merely a directory of all subjobs and
-  associated settings.
-
-* `<workload>_reporting_class`
-  Return the type of workload for reporting purposes.  Defaults to the
-  name of the workload.  Should be used if the workload is equivalent
-  to another workload for reporting purposes.
-
-* `<workload>_namespace_policy`
-  Return the policy that should be used for creating namespaces
-  (normally privileged if privileged pods are required, or restricted
-  otherwise).
-
-* `<workload>_sysctls`
-  Return a list of sysctl names and values, one name and value per
-  line, space separated.
-
-* `<workload>_security_context`
-  Return the security context required for this workload.  Normally
-  this is generated from the namespace policy and sysctls.
-
-* `<workload>_vm_required_packages`
-  Return a list of packages, one per line, that are required to run
-  the workload.
-
-* `<workload>_vm_setup_commands`
-  Return a list of commands, one per line, that must be run on
-  CNV/Kubevirt VMs in order to prepare for running the workload.
-  Normally package requirements should be provided in
-  `vm_required_packages`.  This should not include any sysctls unless
-  they are needed on the host.
-
-* `<workload>_requires_drop_cache`
-  Returns true if workload requires use of dropping cache.  This is
-  typicaly required for workloads doing file I/O.
-  
-* `<workload>_requires_writable_workdir`
-  Returns true if workload requires that the workdir be writable.
-  This is typically required for workloads doing file I/O.  It is
-  assumed that if the user specifies a workdir other than the default
-  (/var/tmp/clusterbuster) that arrangements will be made such that
-  that directory is writable.
+    def document(self) -> str:
+        return "My custom workload."
+```
 
 #### Workload Client (Pod) API
 
@@ -274,7 +186,7 @@ All workloads should implement a subclass of
 `clusterbuster_pod_client` and invoke the `run_workload()` method of
 the derived class.
 
-```
+```python
 #!/usr/bin/env python3
 
 import time
@@ -512,22 +424,19 @@ This currently only documents the most commonly used members.
 
 To create a new workload, you need to do the following:
 
-1. (Optional) Create a directory into which you want to place your
-   workload.  This directory should contain subdirectories name
-   `workloads` and `pod_files` and should be added to the `CB_LIBPATH`
-   environment variable.
+1. Create a Python file in `lib/clusterbuster/driver/workloads/`
+   (e.g. `myworkload.py`).
 
-2. Create a `.workload` file and place it in `lib/workloads` (or the
-   `workloads` subdirectory of a member of `CB_LIBPATH`).  The
-   workload file is a set of bash functions, as the file is sourced by
-   clusterbuster.
+2. Subclass `WorkloadBase`, set `name` (and optionally `aliases`),
+   and decorate with `@register`.
 
-3. (Optional) Create one or more workloads, which go into
-   `lib/pod_files`.  These are the actual workloads, or
-   scripts that run them.  These are written in Python and are
-   subclasses of `clusterbuster_pod_client`.
+3. Override `arglist()` (or `server_arglist()`/`client_arglist()` for
+   client-server workloads) and any other methods needed.
 
-4. (Optional) Create Python scripts to generate reports.  If you don't
+4. (Optional) Create the in-pod workload script in `lib/pod_files/`
+   as a subclass of `clusterbuster_pod_client`.
+
+5. (Optional) Create Python scripts to generate reports.  If you don't
    do this and attempt to generate a report, you'll get only a generic
    report which won't have any workload-specific information.  You can
    create any of the following scripts, but each type of script
@@ -546,6 +455,10 @@ To create a new workload, you need to do the following:
       form suitable for downstream consumption, be it by humans,
       databases, or spreadsheets.  There are several types of analysis
       scripts, and more may be added in the future.
+
+The workload is auto-discovered when the `workloads` package is
+imported; no manual registration step is needed beyond the
+`@register` decorator.
 
 ### CI Workflows
 
@@ -588,17 +501,15 @@ run-perf-ci-suite --help
 
 ClusterBuster currently supports running workloads as pods, VMs,
 ReplicaSets, or Deployments (with very minimal differences between the
-latter two).  At present, the object types are hard-coded into
-ClusterBuster.
+latter two).
 
-All of the object types are created from `create_standard_deployment`,
-which dispatches to the appropriate object creation based on the value
-of `deployment_type` (currently either `create_pod_deployment` or
-`create_replication_deployment`).  Both of these create similar
-specifications using `create_spec`; other types of objects will
-probably be quite similar.  VMs have required significant code
-differences; any other deployment types created will likely require
-significant amounts of changed code.
+Deployment manifests are constructed by the `ManifestBuilder` class
+(`lib/clusterbuster/driver/manifests.py`), which dispatches to the
+appropriate manifest construction method based on the value of
+`deployment_type`.  VM manifests are produced by `VmManifestBuilder`.
+Adding a new deployment type requires extending `ManifestBuilder` with
+a new method and wiring it into `_create_all_deployments` in
+`orchestrator.py`.
 
 ## Bring Your Own Workload
 

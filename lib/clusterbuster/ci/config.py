@@ -27,6 +27,7 @@ class ClusterbusterCISuiteConfig:
     job_timeout: int = -1200
     error_is_failure: bool = True
     dontdoit: bool = False
+    debugonly: bool = False
     artifactdir: Path | None = None
     uuid: str = ""
     extra_args: list[str] = field(default_factory=list)

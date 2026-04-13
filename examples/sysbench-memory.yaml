@@ -1,0 +1,10 @@
+# Run as
+# clusterbuster -f examples/sysbench-memory.yaml
+options:
+  workload: sysbench
+  sysbench-workload: memory
+  precleanup: true
+  cleanup: true
+  workloadruntime: 10
+  exit-at-end: true
+  report-object-creation: false

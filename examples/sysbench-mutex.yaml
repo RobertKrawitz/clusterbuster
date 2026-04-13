@@ -1,0 +1,10 @@
+# Run as
+# clusterbuster -f examples/sysbench-mutex.yaml
+options:
+  workload: sysbench
+  sysbench-workload: mutex
+  precleanup: true
+  cleanup: true
+  workloadruntime: 10
+  exit-at-end: true
+  report-object-creation: false

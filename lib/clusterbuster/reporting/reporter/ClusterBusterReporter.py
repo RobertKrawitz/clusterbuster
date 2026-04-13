@@ -220,22 +220,22 @@ class ClusterBusterReporter:
     @staticmethod
     def __enumerate_dirs(items: list):
         answers = list()
-        for item in items:
-            if isinstance(item, str):
-                if os.path.splitext(item)[1] == '.json' and os.path.isfile(item):
-                    answers.append(item)
-                elif os.path.isdir(item):
-                    if ClusterBusterReporter.is_report_dir(item):
-                        answers.append(ClusterBusterReporter.__get_report_file(item))
-                    else:
-                        subitems = sorted(os.listdir(item))
-                        for subitem in subitems:
-                            subitem = os.path.join(item, subitem)
-                            if ClusterBusterReporter.__validate_dir(subitem):
-                                answers.append(ClusterBusterReporter.get_report_dir(subitem))
+        str_items = [i for i in items if isinstance(i, str)]
+        for item in str_items:
+            if os.path.splitext(item)[1] == '.json' and os.path.isfile(item):
+                answers.append(item)
+            elif os.path.isdir(item):
+                if ClusterBusterReporter.is_report_dir(item):
+                    answers.append(ClusterBusterReporter.__get_report_file(item))
                 else:
-                    print(f'{item}: no such file or directory')
-        if len(items) > 0 and len(answers) == 0:
+                    subitems = sorted(os.listdir(item))
+                    for subitem in subitems:
+                        subitem = os.path.join(item, subitem)
+                        if ClusterBusterReporter.__validate_dir(subitem):
+                            answers.append(ClusterBusterReporter.get_report_dir(subitem))
+            else:
+                print(f'{item}: no such file or directory')
+        if len(str_items) > 0 and len(answers) == 0:
             raise _ClusterBusterNoReportsException()
         return answers
 

@@ -1,0 +1,9 @@
+# Run as
+# clusterbuster -f examples/pausepod.yaml
+options:
+  precleanup: true
+  workload: pausepod
+  report-object-creation: false
+  replicas: 8
+  namespaces: 1
+  exit-at-end: true

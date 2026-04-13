@@ -75,8 +75,7 @@ class UperfWorkload:
                             ]
                             if self.use_annotation == "1":
                                 tail.append(
-                                    '--pod-annotation=io.katacontainers.config.hypervisor.default_vcpus: "%s"'
-                                    % nthr
+                                    f"--pod-annotation=io.katacontainers.config.hypervisor.default_vcpus: {nthr}"
                                 )
                             suite.run_clusterbuster_1(
                                 RunJobParams(

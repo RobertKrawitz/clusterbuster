@@ -24,6 +24,11 @@ options:
   fio-absolute-filesize: 32Gi
   fio-timeout: 3600
   fio-memsize: 4096
+  # Kata VM memory limit for fio: filesize + VM size + 1Gi overhead
+  # to accommodate virtiofsd page cache in the pod cgroup.
+  # 32Gi (32768) + 4096 + 1024 = 37888 MiB
+  "limit:fio:kata":
+    - "memory=37888Mi"
 
   uperf-msg-sizes: "64,8192"
   uperf-nthr: 1
@@ -52,6 +57,8 @@ options:
     - "cpu=4"
   "vm-cores:hammerdb": 5
   "vm-memory:hammerdb": 8Gi
+
+  "namespaces:fio,uperf": 2
 
   artifactdir: ""
   virtiofsd-direct: 1

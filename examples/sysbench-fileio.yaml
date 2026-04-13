@@ -1,0 +1,10 @@
+# Run as
+# clusterbuster -f examples/sysbench-fileio.yaml
+options:
+  workload: sysbench
+  sysbench-workload: fileio
+  precleanup: true
+  cleanup: true
+  workloadruntime: 30
+  exit-at-end: true
+  report-object-creation: false

@@ -10,6 +10,9 @@
 examples/.cb-ordered-smoke.*.sh
 .cursor/
 
+# E2E test artifacts (report JSON, logs)
+tests/e2e-artifacts/
+
 # Local ClusterBuster CI report trees / tarballs for testing (not committed)
 cb-ci-*/
 cb-ci-*.tar

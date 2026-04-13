@@ -1,0 +1,10 @@
+# Run as
+# clusterbuster -f examples/sysbench-cpu.yaml
+options:
+  workload: sysbench
+  sysbench-workload: cpu
+  precleanup: true
+  cleanup: true
+  workloadruntime: 10
+  exit-at-end: true
+  report-object-creation: false

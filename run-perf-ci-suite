@@ -17,7 +17,11 @@ logger tree so routine messages go to **stdout** and warnings/errors to **stderr
 from __future__ import annotations
 
 import os
+import signal
 import sys
+
+signal.signal(signal.SIGINT, lambda *_: sys.exit(130))
+signal.signal(signal.SIGPIPE, signal.SIG_DFL)
 
 if "CB_LIBPATH" in os.environ:
     sys.path = [element for element in os.environ["CB_LIBPATH"].split(":")] + sys.path

@@ -1,0 +1,13 @@
+# Run as
+# clusterbuster -f examples/log.yaml
+options:
+  precleanup: true
+  workload: logger
+  report-object-creation: false
+  replicas: 8
+  namespaces: 1
+  exit-at-end: true
+  log-bytes-per-line: 128
+  log-lines-per-io: 16
+  log-xfer-count: 16
+  log-delay: 0.25

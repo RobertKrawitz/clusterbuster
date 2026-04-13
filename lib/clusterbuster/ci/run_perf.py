@@ -202,6 +202,7 @@ class CISuiteState:
     report_format: str = "none"
     analysis_format: str = ""
     debugonly: int = 0
+    cb_dryrun: bool = False
     run_timeout: int = 0
     force_pull_image: bool = False
     use_python_venv: bool = True
@@ -356,6 +357,8 @@ def parse_argv(argv: Sequence[str], state: CISuiteState) -> list[str]:
             raise SystemExit(0)
         elif a == "-n":
             state.debugonly += 1
+        elif a == "-N":
+            state.cb_dryrun = True
         elif a == "-z":
             state.compress_report = "-z"
         elif a.startswith("--"):
@@ -407,7 +410,8 @@ def to_hms(start: int, end: int) -> str:
 
 
 def run_suite_with_orchestration(state: CISuiteState, workload_args: list[str]) -> int:
-    dry = state.debugonly > 0 or state.dry_run_from_profile
+    debugonly = state.debugonly > 0 or state.dry_run_from_profile
+    dry = debugonly or state.cb_dryrun
     oc = find_oc()
     if not oc and not dry:
         _LOG.warning("Cannot find oc or kubectl")
@@ -437,8 +441,6 @@ def run_suite_with_orchestration(state: CISuiteState, workload_args: list[str]) 
                 state.artifactdir_template, utc_now=datetime.fromtimestamp(starting_ts, tz=timezone.utc)
             )
         art = Path(state.artifactdir_template)
-        # Restart: recover uuid from the first completed job under the artifact root if present.
-        # Non-restart: remove artifact root only if it is itself a report dir; then mkdir if missing.
         if state.restart:
             if art.exists():
                 recovered = recover_uuid_from_artifact_root(art)
@@ -452,7 +454,7 @@ def run_suite_with_orchestration(state: CISuiteState, workload_args: list[str]) 
             if not art.exists():
                 art.mkdir(parents=True, exist_ok=True)
     if not state.uuid:
-        state.uuid = __import__("uuid").uuid4().hex
+        state.uuid = str(__import__("uuid").uuid4())
 
     debug_args = " ".join(state.debug_args_list)
     compress = bool(state.compress_report)
@@ -463,6 +465,7 @@ def run_suite_with_orchestration(state: CISuiteState, workload_args: list[str]) 
         default_job_runtime=state.job_runtime,
         job_timeout=state.job_timeout,
         dontdoit=dry,
+        debugonly=debugonly,
         artifactdir=art,
         uuid=state.uuid,
         extra_args=list(state.extra_args),

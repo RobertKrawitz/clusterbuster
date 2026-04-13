@@ -1,0 +1,477 @@
+[
+  {
+    "kind": "Namespace",
+    "labels": {
+      "clusterbuster": "true",
+      "clusterbuster-id": "UUID",
+      "clusterbuster-namespace": "UUID",
+      "clusterbuster-objtype": "namespace",
+      "clusterbuster-uuid": "UUID",
+      "clusterbuster-workload": "true",
+      "clusterbuster-x-namespace": "XUUID",
+      "clusterbuster-xuuid": "XUUID",
+      "clusterbusterbase": "true"
+    },
+    "name": "clusterbuster-0",
+    "namespace": ""
+  },
+  {
+    "headless": true,
+    "kind": "Service",
+    "labels": {
+      "clusterbuster": "true",
+      "clusterbuster-id": "UUID",
+      "clusterbuster-objtype": "service",
+      "clusterbuster-service": "UUID",
+      "clusterbuster-uuid": "UUID",
+      "clusterbuster-workload": "true",
+      "clusterbuster-x-service": "XUUID",
+      "clusterbuster-xuuid": "XUUID",
+      "clusterbusterbase": "true"
+    },
+    "name": "svc-clusterbuster-sync-sync",
+    "namespace": "clusterbuster-sync",
+    "ports": [
+      {
+        "name": "svc-clusterbuster-sync-sync-7778-tcp",
+        "port": 7778,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-sync-sync-7778-udp",
+        "port": 7778,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-sync-sync-7753-tcp",
+        "port": 7753,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-sync-sync-7753-udp",
+        "port": 7753,
+        "protocol": "UDP"
+      }
+    ],
+    "selector": {
+      "clusterbuster-sync-sync": "true"
+    }
+  },
+  {
+    "kind": "Pod",
+    "labels": {
+      "app": "clusterbuster-sync-sync",
+      "clusterbuster": "true",
+      "clusterbuster-id": "UUID",
+      "clusterbuster-monitor": "XUUID",
+      "clusterbuster-objtype": "sync",
+      "clusterbuster-sync": "UUID",
+      "clusterbuster-sync-sync": "true",
+      "clusterbuster-uuid": "UUID",
+      "clusterbuster-x-sync": "XUUID",
+      "clusterbuster-xuuid": "XUUID",
+      "clusterbusterbase": "true",
+      "instance": "clusterbuster-sync-sync",
+      "k8s-app": "clusterbuster-sync-sync",
+      "name": "clusterbuster-sync-sync",
+      "replica": "clusterbuster-sync-sync",
+      "sync": "true"
+    },
+    "name": "clusterbuster-sync",
+    "namespace": "clusterbuster-sync",
+    "restart_policy": "Never",
+    "run_as_non_root": true
+  },
+  {
+    "kind": "Service",
+    "labels": {
+      "clusterbuster": "true",
+      "clusterbuster-id": "UUID",
+      "clusterbuster-objtype": "service",
+      "clusterbuster-service": "UUID",
+      "clusterbuster-uuid": "UUID",
+      "clusterbuster-workload": "true",
+      "clusterbuster-x-service": "XUUID",
+      "clusterbuster-xuuid": "XUUID",
+      "clusterbusterbase": "true"
+    },
+    "name": "svc-clusterbuster-sync-sync",
+    "namespace": "clusterbuster-0",
+    "ports": [
+      {
+        "name": "svc-clusterbuster-sync-sync-7778",
+        "port": 7778,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-sync-sync-7753",
+        "port": 7753,
+        "protocol": "TCP"
+      }
+    ],
+    "service_type": "ExternalName"
+  },
+  {
+    "headless": true,
+    "kind": "Service",
+    "labels": {
+      "clusterbuster": "true",
+      "clusterbuster-id": "UUID",
+      "clusterbuster-objtype": "service",
+      "clusterbuster-service": "UUID",
+      "clusterbuster-uuid": "UUID",
+      "clusterbuster-workload": "true",
+      "clusterbuster-x-service": "XUUID",
+      "clusterbuster-xuuid": "XUUID",
+      "clusterbusterbase": "true"
+    },
+    "name": "clusterbuster-0-server-server-0-1",
+    "namespace": "clusterbuster-0",
+    "ports": [
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30000-tcp",
+        "port": 30000,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30000-udp",
+        "port": 30000,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30001-tcp",
+        "port": 30001,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30001-udp",
+        "port": 30001,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30002-tcp",
+        "port": 30002,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30002-udp",
+        "port": 30002,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30003-tcp",
+        "port": 30003,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30003-udp",
+        "port": 30003,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30004-tcp",
+        "port": 30004,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30004-udp",
+        "port": 30004,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30005-tcp",
+        "port": 30005,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30005-udp",
+        "port": 30005,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30006-tcp",
+        "port": 30006,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30006-udp",
+        "port": 30006,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30007-tcp",
+        "port": 30007,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30007-udp",
+        "port": 30007,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30008-tcp",
+        "port": 30008,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30008-udp",
+        "port": 30008,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30009-tcp",
+        "port": 30009,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30009-udp",
+        "port": 30009,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30010-tcp",
+        "port": 30010,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30010-udp",
+        "port": 30010,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30011-tcp",
+        "port": 30011,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30011-udp",
+        "port": 30011,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30012-tcp",
+        "port": 30012,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30012-udp",
+        "port": 30012,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30013-tcp",
+        "port": 30013,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30013-udp",
+        "port": 30013,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30014-tcp",
+        "port": 30014,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30014-udp",
+        "port": 30014,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30015-tcp",
+        "port": 30015,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30015-udp",
+        "port": 30015,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30016-tcp",
+        "port": 30016,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30016-udp",
+        "port": 30016,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30017-tcp",
+        "port": 30017,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30017-udp",
+        "port": 30017,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30018-tcp",
+        "port": 30018,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30018-udp",
+        "port": 30018,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30019-tcp",
+        "port": 30019,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30019-udp",
+        "port": 30019,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30020-tcp",
+        "port": 30020,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30020-udp",
+        "port": 30020,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30021-tcp",
+        "port": 30021,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30021-udp",
+        "port": 30021,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30022-tcp",
+        "port": 30022,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30022-udp",
+        "port": 30022,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30023-tcp",
+        "port": 30023,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30023-udp",
+        "port": 30023,
+        "protocol": "UDP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30024-tcp",
+        "port": 30024,
+        "protocol": "TCP"
+      },
+      {
+        "name": "svc-clusterbuster-0-server-server-0-1-30024-udp",
+        "port": 30024,
+        "protocol": "UDP"
+      }
+    ],
+    "selector": {
+      "replica": "clusterbuster-0-server-server-0-1"
+    }
+  },
+  {
+    "kind": "Pod",
+    "labels": {
+      "app": "clusterbuster-0-server-server",
+      "clusterbuster": "true",
+      "clusterbuster-id": "UUID",
+      "clusterbuster-logger": "true",
+      "clusterbuster-monitor": "XUUID",
+      "clusterbuster-objtype": "worker",
+      "clusterbuster-server-server": "UUID",
+      "clusterbuster-uuid": "UUID",
+      "clusterbuster-worker": "UUID",
+      "clusterbuster-workload": "true",
+      "clusterbuster-x-worker": "XUUID",
+      "clusterbuster-xuuid": "XUUID",
+      "clusterbusterbase": "true",
+      "instance": "clusterbuster-0-server-server-0",
+      "k8s-app": "clusterbuster-0-server-server",
+      "name": "clusterbuster-0-server-server-0",
+      "replica": "clusterbuster-0-server-server-0-1",
+      "server-server": "true"
+    },
+    "name": "clusterbuster-0-server-server-0-1",
+    "namespace": "clusterbuster-0",
+    "restart_policy": "Never",
+    "run_as_non_root": true
+  },
+  {
+    "kind": "Deployment",
+    "labels": {
+      "app": "clusterbuster-0-server-client",
+      "clusterbuster": "true",
+      "clusterbuster-id": "UUID",
+      "clusterbuster-logger": "true",
+      "clusterbuster-monitor": "XUUID",
+      "clusterbuster-objtype": "worker",
+      "clusterbuster-server-client": "UUID",
+      "clusterbuster-uuid": "UUID",
+      "clusterbuster-worker": "UUID",
+      "clusterbuster-workload": "true",
+      "clusterbuster-x-worker": "XUUID",
+      "clusterbuster-xuuid": "XUUID",
+      "clusterbusterbase": "true",
+      "instance": "clusterbuster-0-server-client-0",
+      "k8s-app": "clusterbuster-0-server-client",
+      "name": "clusterbuster-0-server-client-0",
+      "replica": "clusterbuster-0-server-client-0",
+      "server-client": "true"
+    },
+    "match_labels": {
+      "instance": "clusterbuster-0-server-client-0"
+    },
+    "name": "clusterbuster-0-server-client-0",
+    "namespace": "clusterbuster-0",
+    "run_as_non_root": true,
+    "template_labels": {
+      "app": "clusterbuster-0-server-client",
+      "clusterbuster": "true",
+      "clusterbuster-id": "UUID",
+      "clusterbuster-logger": "true",
+      "clusterbuster-monitor": "XUUID",
+      "clusterbuster-objtype": "worker",
+      "clusterbuster-server-client": "UUID",
+      "clusterbuster-uuid": "UUID",
+      "clusterbuster-worker": "UUID",
+      "clusterbuster-workload": "true",
+      "clusterbuster-x-worker": "XUUID",
+      "clusterbuster-xuuid": "XUUID",
+      "clusterbusterbase": "true",
+      "instance": "clusterbuster-0-server-client-0",
+      "k8s-app": "clusterbuster-0-server-client",
+      "name": "clusterbuster-0-server-client-0",
+      "replica": "clusterbuster-0-server-client-0",
+      "server-client": "true"
+    }
+  },
+  {
+    "kind": "Namespace",
+    "labels": {
+      "clusterbuster": "true",
+      "clusterbuster-id": "UUID",
+      "clusterbuster-namespace": "UUID",
+      "clusterbuster-objtype": "namespace",
+      "clusterbuster-uuid": "UUID",
+      "clusterbuster-x-namespace": "XUUID",
+      "clusterbuster-xuuid": "XUUID",
+      "clusterbusterbase": "true"
+    },
+    "name": "clusterbuster-sync",
+    "namespace": ""
+  }
+]

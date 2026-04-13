@@ -1,0 +1,14 @@
+# Run as
+# clusterbuster -f examples/server.yaml
+options:
+  cleanup: true
+  workload: server
+  target-data-rate: -1
+  workloadruntime: 10
+  precleanup: true
+  report-object-creation: false
+  deps-per-namespace: 2
+  namespaces: 4
+  replicas: 3
+  antiaffinity: true
+  exit-at-end: true
