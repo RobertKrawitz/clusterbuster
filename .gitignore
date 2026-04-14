@@ -9,6 +9,7 @@
 *.qcow2
 examples/.cb-ordered-smoke.*.sh
 .cursor/
+build/
 
 # E2E test artifacts (report JSON, logs)
 tests/e2e-artifacts/
